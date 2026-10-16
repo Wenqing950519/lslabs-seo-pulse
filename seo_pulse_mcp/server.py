@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from typing import Literal
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError:
@@ -17,6 +18,7 @@ from .hosts import exclude_hosts, clean_hosts
 from .anomalies import detect_anomalies as calculate_anomalies
 
 from .branding import DISPLAY_NAME
+from .render import render_markdown
 from .report import build_weekly_report
 from .settings import load_settings
 
@@ -76,7 +78,8 @@ def detect_anomalies(current: dict, previous: dict, rules: dict | None = None) -
 
 
 @mcp.tool()
-def weekly_report(end_date: str | None = None, top_n: int = 20) -> dict:
+def weekly_report(end_date: str | None = None, top_n: int = 20,
+                  format: Literal["json", "markdown"] = "json") -> dict | str:
     """產生週報資料（建議優先使用）。伺服器端一次抓取本週、上週與前四週 GSC／GA4，
     清理測試主機、計算 baseline 週平均並套用 A1–A14 規則，只回傳精簡結果。
 
@@ -84,10 +87,15 @@ def weekly_report(end_date: str | None = None, top_n: int = 20) -> dict:
     top_n: 回傳的異常筆數上限（依優先序排序），findings_total 為總數。
     回傳 periods、totals（GSC／GA4 本週、上週、變化%）、data_quality、top_pages、
     top_queries、findings、priority_counts、not_evaluated、warnings；fixture 為 true 時是假資料。
+    format="markdown" 時改回傳排好版的繁中週報，數字表格由程式產生，只需替換「本週摘要」與
+    「下週建議」兩段的引言佔位文字。
     """
     settings = load_settings()
     gsc, ga4 = get_connectors(settings)
-    return build_weekly_report(gsc, ga4, settings, end_date=end_date, top_n=top_n)
+    if format not in ("json", "markdown"):
+        raise ValueError("format must be json or markdown")
+    report = build_weekly_report(gsc, ga4, settings, end_date=end_date, top_n=top_n)
+    return render_markdown(report) if format == "markdown" else report
 
 
 def main():

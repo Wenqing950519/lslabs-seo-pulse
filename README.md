@@ -11,26 +11,39 @@ SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中�
 
 顯示名稱可能在公開發布前調整；程式以 `seo_pulse_mcp/branding.py` 的 `DISPLAY_NAME` 與 `FOOTER` 為準。
 
+## 安裝與測試
+
+macOS／Linux：
+
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[test,google]'
 .venv/bin/python -m pytest -q
-.venv/bin/python -m seo_pulse_mcp.server
 ```
 
-使用官方 `mcp` Python SDK FastMCP，以 stdio 啟動。若 SDK 無法安裝，工具函式仍可匯入使用，但啟動伺服器會提示安裝 SDK。
+Windows（PowerShell）：
 
-Claude Desktop 的 MCP 設定範例（將絕對路徑換成此 app/ 所在位置，重新啟動 Claude）：
+```powershell
+py -m venv .venv
+.venv\Scripts\python.exe -m pip install -e ".[test,google]"
+.venv\Scripts\python.exe -m pytest -q
+```
+
+只用假資料試用時可改裝 `.[test]`；Google 相關測試會自動跳過。Windows 會一併安裝 `tzdata`，讓 `Asia/Taipei` 等時區可用。
+
+使用官方 `mcp` Python SDK FastMCP，以 stdio 啟動：`python -m seo_pulse_mcp.server`。
+
+## 掛載到 Claude
+
+Claude Desktop：編輯設定檔（Windows 為 `%APPDATA%\Claude\claude_desktop_config.json`，macOS 為 `~/Library/Application Support/Claude/claude_desktop_config.json`），把路徑換成此 repo 的絕對路徑後重新啟動 Claude。Windows 範例：
 
 ```json
 {
   "mcpServers": {
     "seo-pulse": {
-      "command": "/absolute/path/app/.venv/bin/python",
+      "command": "C:\\path\\to\\seo-pulse\\.venv\\Scripts\\python.exe",
       "args": ["-m", "seo_pulse_mcp.server"],
-      "cwd": "/absolute/path/app",
       "env": {
-        "PYTHONPATH": "/absolute/path/app",
         "SEO_PULSE_CONNECTOR": "fixture",
         "SEO_PULSE_PRODUCTION_HOSTS": "example.com",
         "SEO_PULSE_EXCLUDE_HOSTS": "staging.example.com"
@@ -40,7 +53,19 @@ Claude Desktop 的 MCP 設定範例（將絕對路徑換成此 app/ 所在位置
 }
 ```
 
-主要工具：`weekly_report(end_date=None, top_n=20)`。伺服器端一次抓取本週、上週（GSC 含每日 date/query/page）與前四週 baseline，GA4 只清理一次並保留資料品質，套用 A1–A14 後只回傳精簡結果：`periods`、`totals`（GSC／GA4 本週、上週、變化%、baseline 週平均）、`data_quality`、`top_pages`／`top_queries`、依優先序排序的 `findings`（最多 `top_n` 筆，`findings_total` 為總數）、`priority_counts`、`not_evaluated` 與 `warnings`。`end_date` 省略時以 `SEO_PULSE_TIMEZONE` 的今天減 `SEO_PULSE_GSC_LAG_DAYS` 天計算。baseline 為本週之前四週（含上週）的每週平均；有資料的天數不足 28 天、本週資料不足 7 天或 GA4 污染超過 20% 時列入 `warnings`。
+macOS／Linux 的 `command` 改為 `/path/to/seo-pulse/.venv/bin/python`。套件以 `pip install -e` 安裝，不需另設 `PYTHONPATH` 或 `cwd`。
+
+Claude Code：
+
+```bash
+claude mcp add seo-pulse -e SEO_PULSE_CONNECTOR=fixture -- /path/to/seo-pulse/.venv/bin/python -m seo_pulse_mcp.server
+```
+
+Windows 把最後的路徑換成 `C:\path\to\seo-pulse\.venv\Scripts\python.exe`。週報流程見 `skill/SKILL.md`，可放進 Claude 的 Skills 使用。
+
+## 工具
+
+主要工具：`weekly_report(end_date=None, top_n=20, format="json")`。`format="markdown"` 時回傳排好版的繁中週報：標題、期間、關鍵數字、資料品質、依 P0/P1/P2 分組的異常、熱門頁面與查詢都由程式產生，AI 只替換「本週摘要」與「下週建議」兩段的佔位文字，數字不經 AI 轉抄。JSON 模式由伺服器端一次抓取本週、上週（GSC 含每日 date/query/page）與前四週 baseline，GA4 只清理一次並保留資料品質，套用 A1–A14 後只回傳精簡結果：`periods`、`totals`（GSC／GA4 本週、上週、變化%、baseline 週平均）、`data_quality`、`top_pages`／`top_queries`、依優先序排序的 `findings`（最多 `top_n` 筆，`findings_total` 為總數）、`priority_counts`、`not_evaluated` 與 `warnings`。`end_date` 省略時以 `SEO_PULSE_TIMEZONE` 的今天減 `SEO_PULSE_GSC_LAG_DAYS` 天計算。baseline 為本週之前四週（含上週）的每週平均；有資料的天數不足 28 天、本週資料不足 7 天或 GA4 污染超過 20% 時列入 `warnings`。
 
 追查用工具：`list_sites`、`gsc_query(start_date,end_date,dimensions,filters)`、`gsc_compare_weeks(end_date,dimensions,filters)`、`ga4_report(start_date,end_date)`、`ga4_compare_weeks(end_date)`、`detect_anomalies(current,previous,rules)`。日期為 ISO 格式且包含起訖日；比較工具取結束日起 7 天及前 7 天。GSC 維度支援 date/query/page、filters 為等值字典；排名以曝光加權，CTR 由點擊／曝光重算。這些工具回傳原始 rows，資料量大時請改用 `weekly_report`。
 
@@ -83,7 +108,7 @@ GA4 先依 `SEO_PULSE_PRODUCTION_HOSTS`（逗號分隔，預設 example.com）�
 
 A9 以 `SEO_PULSE_CANONICAL_ORIGIN`（例如 `https://lslabs.tw`）判定正式網址；未設定時取 `https://` 加第一個正式主機。scheme 或主機不同的 GSC 網址（含 www 變體）才列為 A9。
 
-異常依 `../growth/weekly-report-template.md` 的 A1–A14 與 P0/P1/P2。`rules.py` 集中門檻，`rules` 參數可覆寫 minimums、thresholds 等設定。輸入格式如下（數字為示意）：
+異常規則 A1–A14 與 P0/P1/P2 的定義見 [`docs/rules.md`](docs/rules.md)。`rules.py` 集中門檻，`rules` 參數可覆寫 minimums、thresholds 等設定。輸入格式如下（數字為示意）：
 
 ```python
 current = {
