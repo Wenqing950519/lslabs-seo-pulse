@@ -9,7 +9,7 @@ description = "SEO Pulse 流量脈搏: local marketing reports MCP"
 authors = [{name="LS-Labs"}]
 requires-python = ">=3.10"
 license = "MIT"
-dependencies = ["mcp>=1,<2"]
+dependencies = ["mcp>=1,<2", "tzdata; sys_platform == 'win32'"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

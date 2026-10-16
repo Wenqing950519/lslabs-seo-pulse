@@ -23,6 +23,7 @@ def test_connector_swap(monkeypatch):
     monkeypatch.delenv('SEO_PULSE_CONNECTOR',raising=False)
     assert isinstance(get_connectors()[0],FixtureGSCConnector)
     GoogleGSCConnector=pytest.importorskip('seo_pulse_mcp.connectors.google').GoogleGSCConnector
+    monkeypatch.setenv('SEO_PULSE_PRODUCTION_HOSTS','lslabs.tw')
     monkeypatch.setenv('SEO_PULSE_CONNECTOR','google')
     gsc,ga4=get_connectors()
     assert isinstance(gsc,GoogleGSCConnector)

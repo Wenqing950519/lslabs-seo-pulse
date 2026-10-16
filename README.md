@@ -40,7 +40,21 @@ Claude Desktop 的 MCP 設定範例（將絕對路徑換成此 app/ 所在位置
 }
 ```
 
-工具：`list_sites`、`gsc_query(start_date,end_date,dimensions,filters)`、`gsc_compare_weeks(end_date,dimensions,filters)`、`ga4_report(start_date,end_date)`、`ga4_compare_weeks(end_date)`、`detect_anomalies(current,previous,rules)`。日期為 ISO 格式且包含起訖日；比較工具取結束日起 7 天及前 7 天。週報結束日請以使用者時區（預設 Asia/Taipei）的今天減 3 天計算。GSC 維度支援 date/query/page、filters 為等值字典；排名以曝光加權，CTR 由點擊／曝光重算。
+主要工具：`weekly_report(end_date=None, top_n=20)`。伺服器端一次抓取本週、上週（GSC 含每日 date/query/page）與前四週 baseline，GA4 只清理一次並保留資料品質，套用 A1–A14 後只回傳精簡結果：`periods`、`totals`（GSC／GA4 本週、上週、變化%、baseline 週平均）、`data_quality`、`top_pages`／`top_queries`、依優先序排序的 `findings`（最多 `top_n` 筆，`findings_total` 為總數）、`priority_counts`、`not_evaluated` 與 `warnings`。`end_date` 省略時以 `SEO_PULSE_TIMEZONE` 的今天減 `SEO_PULSE_GSC_LAG_DAYS` 天計算。baseline 為本週之前四週（含上週）的每週平均；有資料的天數不足 28 天、本週資料不足 7 天或 GA4 污染超過 20% 時列入 `warnings`。
+
+追查用工具：`list_sites`、`gsc_query(start_date,end_date,dimensions,filters)`、`gsc_compare_weeks(end_date,dimensions,filters)`、`ga4_report(start_date,end_date)`、`ga4_compare_weeks(end_date)`、`detect_anomalies(current,previous,rules)`。日期為 ISO 格式且包含起訖日；比較工具取結束日起 7 天及前 7 天。GSC 維度支援 date/query/page、filters 為等值字典；排名以曝光加權，CTR 由點擊／曝光重算。這些工具回傳原始 rows，資料量大時請改用 `weekly_report`。
+
+設定集中於 `seo_pulse_mcp/settings.py`，全部由環境變數讀取：
+
+| 變數 | 預設 | 用途 |
+|---|---|---|
+| `SEO_PULSE_CONNECTOR` | `fixture` | `fixture` 或 `google` |
+| `SEO_PULSE_PRODUCTION_HOSTS` | `example.com` | GA4 正式網域白名單，逗號分隔；Google 模式必須設定 |
+| `SEO_PULSE_EXCLUDE_HOSTS` | 空 | 額外排除的主機 |
+| `SEO_PULSE_CANONICAL_ORIGIN` | `https://` + 第一個正式主機 | A9 正式網址 |
+| `SEO_PULSE_TIMEZONE` | `Asia/Taipei` | 預設結束日的時區（IANA 名稱） |
+| `SEO_PULSE_GSC_LAG_DAYS` | `3` | GSC 資料延遲天數 |
+| `SEO_PULSE_CTR_BENCHMARKS_PATH` | 內建 JSON | A5 預期 CTR |
 
 `SEO_PULSE_CONNECTOR=fixture|google` 切換連接器。Google 連接器為自行撰寫的薄層，僅使用 GSC `https://www.googleapis.com/auth/webmasters.readonly` 與 GA4 `https://www.googleapis.com/auth/analytics.readonly`，各自授權與快取。
 

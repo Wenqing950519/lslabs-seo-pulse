@@ -5,12 +5,12 @@ A13 uses abs(clicks - Google organic sessions) / clicks.
 """
 import json
 import math
-import os
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
-from .hosts import canonical_origin, clean_hosts
+from .hosts import clean_hosts
 from .rules import RULES
+from .settings import load_settings
 
 
 def canonical_page(value, origin):
@@ -38,19 +38,20 @@ def aggregate(rows, dimension=None, origin='https://example.com'):
     return groups
 
 
-def detect_anomalies(current, previous, rules=None):
+def detect_anomalies(current, previous, rules=None, settings=None):
+    settings = settings or load_settings()
     cfg = {**RULES, **(rules or {})}
     mins = {**RULES['minimums'], **cfg['minimums']}
     thresholds = {**RULES['thresholds'], **cfg['thresholds']}
-    path = cfg.get('ctr_benchmarks_path') or os.getenv('SEO_PULSE_CTR_BENCHMARKS_PATH')
+    path = cfg.get('ctr_benchmarks_path') or settings.ctr_benchmarks_path
     benchmarks = json.loads(Path(path or Path(__file__).parent / 'config/ctr_benchmarks.json').read_text(encoding='utf-8'))['expected_ctr_by_position']
     benchmarks = cfg.get('expected_ctr_by_position', benchmarks)
-    origin = rules['canonical_origin'] if rules and 'canonical_origin' in rules else canonical_origin()
+    origin = rules['canonical_origin'] if rules and 'canonical_origin' in rules else settings.canonical_origin
     hosts = cfg['production_hosts'] if rules and 'production_hosts' in rules else None
-    ga, quality = clean_hosts(current.get('ga4', []), hosts)
+    ga, quality = clean_hosts(current.get('ga4', []), hosts, settings)
     # Rows from ga4_compare_weeks are already cleaned; keep the quality measured on the raw rows.
     quality = current.get('data_quality') or quality
-    old_ga, _ = clean_hosts(previous.get('ga4', []), hosts)
+    old_ga, _ = clean_hosts(previous.get('ga4', []), hosts, settings)
     baseline = current.get('baseline')
     rows, old_rows = current.get('gsc', []), previous.get('gsc', [])
     site = aggregate(rows).get('site', {})

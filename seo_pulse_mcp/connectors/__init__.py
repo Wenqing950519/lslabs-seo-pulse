@@ -1,12 +1,14 @@
-import os
+from ..settings import load_settings
 from .fixture import FixtureGSCConnector, FixtureGA4Connector
 
 
-def get_connectors():
-    mode = os.getenv("SEO_PULSE_CONNECTOR", "fixture")
-    if mode == "fixture":
+def get_connectors(settings=None):
+    settings = settings or load_settings()
+    if settings.connector == "fixture":
         return FixtureGSCConnector(), FixtureGA4Connector()
-    if mode == "google":
+    if settings.connector == "google":
+        if settings.uses_default_hosts:
+            raise ValueError("Google 模式請設定 SEO_PULSE_PRODUCTION_HOSTS 為正式網域，不能沿用 example.com。")
         # Optional [google] extra: import only when selected so fixture mode needs only mcp.
         from .google import GoogleGSCConnector, GoogleGA4Connector
         return GoogleGSCConnector(), GoogleGA4Connector()

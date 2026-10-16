@@ -17,6 +17,8 @@ from .hosts import exclude_hosts, clean_hosts
 from .anomalies import detect_anomalies as calculate_anomalies
 
 from .branding import DISPLAY_NAME
+from .report import build_weekly_report
+from .settings import load_settings
 
 mcp = FastMCP("seo-pulse")
 
@@ -71,6 +73,21 @@ def ga4_compare_weeks(end_date: str) -> dict:
 def detect_anomalies(current: dict, previous: dict, rules: dict | None = None) -> list[dict]:
     """Apply analyst A1–A14 rules; current.baseline is the prior four-week average."""
     return calculate_anomalies(current, previous, rules)
+
+
+@mcp.tool()
+def weekly_report(end_date: str | None = None, top_n: int = 20) -> dict:
+    """產生週報資料（建議優先使用）。伺服器端一次抓取本週、上週與前四週 GSC／GA4，
+    清理測試主機、計算 baseline 週平均並套用 A1–A14 規則，只回傳精簡結果。
+
+    end_date: ISO 日期（YYYY-MM-DD），本週最後一天；省略時用報告時區今天減 GSC 延遲天數。
+    top_n: 回傳的異常筆數上限（依優先序排序），findings_total 為總數。
+    回傳 periods、totals（GSC／GA4 本週、上週、變化%）、data_quality、top_pages、
+    top_queries、findings、priority_counts、not_evaluated、warnings；fixture 為 true 時是假資料。
+    """
+    settings = load_settings()
+    gsc, ga4 = get_connectors(settings)
+    return build_weekly_report(gsc, ga4, settings, end_date=end_date, top_n=top_n)
 
 
 def main():
