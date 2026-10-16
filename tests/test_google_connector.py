@@ -1,3 +1,4 @@
+import os
 import json
 from types import SimpleNamespace as NS
 from unittest.mock import Mock, patch
@@ -48,7 +49,8 @@ def test_refresh(tmp_path):
     credentials.refresh.assert_called_once_with('transport')
     assert load.call_args.kwargs['scopes'] == list(g.GSC_SCOPES)
     assert json.loads(path.read_text()) == {'refreshed': True}
-    assert path.stat().st_mode & 0o777 == 0o600
+    if os.name != 'nt':  # Windows has no POSIX mode bits; the user-profile ACL protects tokens there.
+        assert path.stat().st_mode & 0o777 == 0o600
 
 
 def test_broader_token_rejected(tmp_path):

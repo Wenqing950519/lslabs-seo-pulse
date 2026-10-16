@@ -43,7 +43,7 @@ def detect_anomalies(current, previous, rules=None):
     mins = {**RULES['minimums'], **cfg['minimums']}
     thresholds = {**RULES['thresholds'], **cfg['thresholds']}
     path = cfg.get('ctr_benchmarks_path') or os.getenv('SEO_PULSE_CTR_BENCHMARKS_PATH')
-    benchmarks = json.loads(Path(path or Path(__file__).parent / 'config/ctr_benchmarks.json').read_text())['expected_ctr_by_position']
+    benchmarks = json.loads(Path(path or Path(__file__).parent / 'config/ctr_benchmarks.json').read_text(encoding='utf-8'))['expected_ctr_by_position']
     benchmarks = cfg.get('expected_ctr_by_position', benchmarks)
     origin = cfg['canonical_origin']
     hosts = cfg['production_hosts'] if rules and 'production_hosts' in rules else None

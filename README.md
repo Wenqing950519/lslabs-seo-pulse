@@ -13,7 +13,7 @@ SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中�
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[test]'
+.venv/bin/python -m pip install -e '.[test,google]'
 .venv/bin/python -m pytest -q
 .venv/bin/python -m seo_pulse_mcp.server
 ```

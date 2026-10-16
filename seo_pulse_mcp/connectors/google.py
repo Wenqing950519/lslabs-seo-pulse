@@ -24,7 +24,7 @@ def _save_token(path, credentials):
     # Atomic replacement with owner-only permissions, including existing caches.
     fd, temporary = tempfile.mkstemp(dir=path.parent)
     try:
-        with os.fdopen(fd, "w") as stream:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
             stream.write(credentials.to_json())
         os.replace(temporary, path)
     finally:
@@ -39,7 +39,7 @@ def _credentials(service, *, interactive=False):
     if path.is_file():
         try:
             # Check stored grants before loading: never reuse broader scopes.
-            info = json.loads(path.read_text())
+            info = json.loads(path.read_text(encoding="utf-8"))
             if set(info.get("scopes", [])) == set(scopes):
                 credentials = Credentials.from_authorized_user_info(info, scopes=list(scopes))
         except (ValueError, KeyError):

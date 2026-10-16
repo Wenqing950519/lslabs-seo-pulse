@@ -15,7 +15,7 @@ def date_rows(rows, start_date, end_date):
 
 class FixtureGSCConnector(GSCConnector):
     def __init__(self, path=DEFAULT_PATH):
-        self.data = json.loads(Path(path).read_text())
+        self.data = json.loads(Path(path).read_text(encoding="utf-8"))
 
     def list_sites(self):
         return self.data["sites"]
@@ -42,7 +42,7 @@ class FixtureGSCConnector(GSCConnector):
 
 class FixtureGA4Connector(GA4Connector):
     def __init__(self, path=DEFAULT_PATH):
-        self.data = json.loads(Path(path).read_text())
+        self.data = json.loads(Path(path).read_text(encoding="utf-8"))
 
     def report(self, start_date, end_date):
         return date_rows(self.data["ga4"], start_date, end_date)
