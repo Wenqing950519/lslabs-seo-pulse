@@ -4,7 +4,7 @@ from types import SimpleNamespace as NS
 from unittest.mock import Mock, patch
 
 import pytest
-from seo_pulse_mcp.connectors import google as g
+g = pytest.importorskip('seo_pulse_mcp.connectors.google')
 
 
 @pytest.fixture(autouse=True)

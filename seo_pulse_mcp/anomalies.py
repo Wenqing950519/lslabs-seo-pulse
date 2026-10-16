@@ -9,7 +9,7 @@ import os
 from datetime import date, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
-from .hosts import clean_hosts
+from .hosts import canonical_origin, clean_hosts
 from .rules import RULES
 
 
@@ -45,9 +45,11 @@ def detect_anomalies(current, previous, rules=None):
     path = cfg.get('ctr_benchmarks_path') or os.getenv('SEO_PULSE_CTR_BENCHMARKS_PATH')
     benchmarks = json.loads(Path(path or Path(__file__).parent / 'config/ctr_benchmarks.json').read_text(encoding='utf-8'))['expected_ctr_by_position']
     benchmarks = cfg.get('expected_ctr_by_position', benchmarks)
-    origin = cfg['canonical_origin']
+    origin = rules['canonical_origin'] if rules and 'canonical_origin' in rules else canonical_origin()
     hosts = cfg['production_hosts'] if rules and 'production_hosts' in rules else None
     ga, quality = clean_hosts(current.get('ga4', []), hosts)
+    # Rows from ga4_compare_weeks are already cleaned; keep the quality measured on the raw rows.
+    quality = current.get('data_quality') or quality
     old_ga, _ = clean_hosts(previous.get('ga4', []), hosts)
     baseline = current.get('baseline')
     rows, old_rows = current.get('gsc', []), previous.get('gsc', [])

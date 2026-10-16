@@ -65,7 +65,9 @@ export SEO_PULSE_CONNECTOR="google"
 
 MCP 設定中的 env 也須填入以上變數（使用絕對路徑），並將 `SEO_PULSE_CONNECTOR` 改為 `google`。帳號須已有對應 GSC 屬性及 GA4 資源的讀取權限。token 預設放在 repo 外的 `~/.config/seo-pulse/tokens/`，檔案僅擁有者可讀寫；`SEO_PULSE_TOKEN_DIR` 可覆寫位置。勿將憑證或 token 放入 repo；`.gitignore` 已排除 `tokens/` 與 `client_secret*.json`。有效 token 自動沿用，過期且可刷新時自動更新。
 
-GA4 先依 `SEO_PULSE_PRODUCTION_HOSTS`（逗號分隔，預設 example.com）白名單清理；localhost、127.0.0.1 與 `SEO_PULSE_EXCLUDE_HOSTS` 永遠排除。其他主機（含預覽站）一律排除。`clean_hosts` 回傳排除 sessions、比例及 >20% 污染警告；分析結果亦附此資料。正式主機採完整名稱匹配，不接受萬用字元。
+GA4 先依 `SEO_PULSE_PRODUCTION_HOSTS`（逗號分隔，預設 example.com）白名單清理；localhost、127.0.0.1 與 `SEO_PULSE_EXCLUDE_HOSTS` 永遠排除。其他主機（含預覽站）一律排除。`clean_hosts` 回傳排除 sessions、比例及 >20% 污染警告；分析結果亦附此資料。正式主機採完整名稱匹配，不接受萬用字元，逗號後的空白會忽略。
+
+A9 以 `SEO_PULSE_CANONICAL_ORIGIN`（例如 `https://lslabs.tw`）判定正式網址；未設定時取 `https://` 加第一個正式主機。scheme 或主機不同的 GSC 網址（含 www 變體）才列為 A9。
 
 異常依 `../growth/weekly-report-template.md` 的 A1–A14 與 P0/P1/P2。`rules.py` 集中門檻，`rules` 參數可覆寫 minimums、thresholds 等設定。輸入格式如下（數字為示意）：
 
@@ -80,7 +82,7 @@ current = {
 }
 ```
 
-previous 同樣含 gsc/ga4；若缺少 baseline，A1/A2/A8 不評估。資料應取同一層級的每日 query/page 明細，勿混入已加總的全站列。A14 只判定前後日都有資料的中間缺漏日。A13 差異定義為 abs(GSC clicks − Google Organic sessions) / GSC clicks。GA4 異常分數依範本採全站 clicks 差值、無 clicks 時採 impressions/10；前 2 名依技術／資料置頂後的排序判定。缺少資料時不可宣稱已完整驗證所有規則。
+使用 `ga4_compare_weeks` 的已清理 rows 時，請把其 `data_quality.current` 放進 `current.data_quality`，否則排除比例會以已清理資料重算為 0。previous 同樣含 gsc/ga4；若缺少 baseline，A1/A2/A8 不評估。資料應取同一層級的每日 query/page 明細，勿混入已加總的全站列。A14 只判定前後日都有資料的中間缺漏日。A13 差異定義為 abs(GSC clicks − Google Organic sessions) / GSC clicks。GA4 異常分數依範本採全站 clicks 差值、無 clicks 時採 impressions/10；前 2 名依技術／資料置頂後的排序判定。缺少資料時不可宣稱已完整驗證所有規則。
 
 CTR 暫定值位於 `seo_pulse_mcp/config/ctr_benchmarks.json`，可用 `SEO_PULSE_CTR_BENCHMARKS_PATH` 或 `rules.ctr_benchmarks_path` 指向同格式 JSON，也可傳 `rules.expected_ctr_by_position`。這些值不是產業引用，累積 **4 週真實資料後須替換**為本站歷史中位數。
 

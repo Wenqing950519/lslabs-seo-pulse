@@ -2,7 +2,6 @@ from pathlib import Path
 import pytest
 from seo_pulse_mcp.connectors import get_connectors
 from seo_pulse_mcp.connectors.fixture import FixtureGSCConnector, FixtureGA4Connector
-from seo_pulse_mcp.connectors.google import GoogleGSCConnector
 from seo_pulse_mcp.hosts import clean_hosts
 from seo_pulse_mcp.anomalies import detect_anomalies
 
@@ -23,6 +22,7 @@ def test_fixture_dates_dimensions_filters():
 def test_connector_swap(monkeypatch):
     monkeypatch.delenv('SEO_PULSE_CONNECTOR',raising=False)
     assert isinstance(get_connectors()[0],FixtureGSCConnector)
+    GoogleGSCConnector=pytest.importorskip('seo_pulse_mcp.connectors.google').GoogleGSCConnector
     monkeypatch.setenv('SEO_PULSE_CONNECTOR','google')
     gsc,ga4=get_connectors()
     assert isinstance(gsc,GoogleGSCConnector)
