@@ -1,0 +1,685 @@
+{
+  "sites": [
+    {
+      "siteUrl": "https://lslabs.tw/",
+      "permissionLevel": "siteOwner",
+      "fake": true
+    }
+  ],
+  "gsc": [
+    {
+      "date": "2026-09-28",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-09-29",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-09-30",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-10-01",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-10-02",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-10-03",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-10-04",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 10,
+      "impressions": 100,
+      "position": 8
+    },
+    {
+      "date": "2026-10-05",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    },
+    {
+      "date": "2026-10-06",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    },
+    {
+      "date": "2026-10-07",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    },
+    {
+      "date": "2026-10-08",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    },
+    {
+      "date": "2026-10-09",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    },
+    {
+      "date": "2026-10-10",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    },
+    {
+      "date": "2026-10-11",
+      "query": "LS Labs 假資料",
+      "page": "https://lslabs.tw/",
+      "clicks": 4,
+      "impressions": 60,
+      "position": 12
+    }
+  ],
+  "ga4": [
+    {
+      "date": "2026-09-28",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-28",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-28",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-28",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-29",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-29",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-29",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-29",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-30",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-30",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-30",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-09-30",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-01",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-01",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-01",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-01",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-02",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-02",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-02",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-02",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-03",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-03",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-03",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-03",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-04",
+      "hostName": "lslabs.tw",
+      "sessions": 40,
+      "activeUsers": 40,
+      "newUsers": 20,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-04",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-04",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-04",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 2
+    },
+    {
+      "date": "2026-10-05",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-05",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-05",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-05",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-06",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-06",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-06",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-06",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-07",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-07",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-07",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-07",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-08",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-08",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-08",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-08",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-09",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-09",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-09",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-09",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-10",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-10",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-10",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-10",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-11",
+      "hostName": "lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-11",
+      "hostName": "localhost",
+      "sessions": 80,
+      "activeUsers": 80,
+      "newUsers": 40,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-11",
+      "hostName": "127.0.0.1",
+      "sessions": 10,
+      "activeUsers": 10,
+      "newUsers": 5,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    },
+    {
+      "date": "2026-10-11",
+      "hostName": "test.lslabs.tw",
+      "sessions": 20,
+      "activeUsers": 20,
+      "newUsers": 10,
+      "sessionDefaultChannelGroup": "Organic Search",
+      "sessionSource": "google",
+      "keyEvents": 1
+    }
+  ]
+}
