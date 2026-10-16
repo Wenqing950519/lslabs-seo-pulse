@@ -22,7 +22,7 @@ def canonical_page(value, origin):
     return value.rstrip('/')
 
 
-def aggregate(rows, dimension=None, origin='https://lslabs.tw'):
+def aggregate(rows, dimension=None, origin='https://example.com'):
     groups = {}
     for row in rows:
         if dimension and dimension not in row:
@@ -42,7 +42,7 @@ def detect_anomalies(current, previous, rules=None):
     cfg = {**RULES, **(rules or {})}
     mins = {**RULES['minimums'], **cfg['minimums']}
     thresholds = {**RULES['thresholds'], **cfg['thresholds']}
-    path = cfg.get('ctr_benchmarks_path') or os.getenv('LSLABS_CTR_BENCHMARKS_PATH')
+    path = cfg.get('ctr_benchmarks_path') or os.getenv('SEO_PULSE_CTR_BENCHMARKS_PATH')
     benchmarks = json.loads(Path(path or Path(__file__).parent / 'config/ctr_benchmarks.json').read_text())['expected_ctr_by_position']
     benchmarks = cfg.get('expected_ctr_by_position', benchmarks)
     origin = cfg['canonical_origin']

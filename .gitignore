@@ -14,4 +14,8 @@ tokens/
 tokens
 node_modules/
 run*.log
-last.txt
+last*.txt
+
+TASK.md
+run*.log
+last*.txt

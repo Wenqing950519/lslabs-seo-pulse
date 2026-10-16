@@ -1,4 +1,4 @@
-from lslabs_reports import server
+from seo_pulse_mcp import server
 
 
 def test_server_tools():
@@ -9,7 +9,7 @@ def test_server_tools():
     ga=server.ga4_compare_weeks('2026-10-11')
     assert sum(r['sessions'] for r in ga['current'])==140
     assert ga['data_quality']['current']['excluded_sessions']==770
-    assert {r['hostName'] for r in server.ga4_report('2026-09-28','2026-10-11')}=={'lslabs.tw'}
+    assert {r['hostName'] for r in server.ga4_report('2026-09-28','2026-10-11')}=={'example.com'}
     anomalies=server.detect_anomalies({'gsc':gsc['current'],'ga4':ga['current'],
                                      'baseline':{'gsc':gsc['previous']}},
                                     {'gsc':gsc['previous'],'ga4':ga['previous']})

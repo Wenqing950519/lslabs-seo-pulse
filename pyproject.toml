@@ -3,21 +3,23 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lslabs_reports"
+name = "seo-pulse-mcp"
 version = "0.1.0"
-description = "LS-Labs fixture-based marketing reports MCP skeleton"
+description = "SEO Pulse 流量脈搏: local marketing reports MCP"
+authors = [{name="LS-Labs"}]
 requires-python = ">=3.10"
 license = "MIT"
 dependencies = ["mcp>=1,<2"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+google = ["google-auth", "google-auth-oauthlib", "google-api-python-client", "google-analytics-data"]
 
 [project.scripts]
-lslabs-reports = "lslabs_reports.server:main"
+seo-pulse = "seo_pulse_mcp.server:main"
 
 [tool.setuptools.packages.find]
-include = ["lslabs_reports*"]
+include = ["seo_pulse_mcp*"]
 
 [tool.setuptools.package-data]
-lslabs_reports = ["fixtures/*.json", "config/*.json"]
+seo_pulse_mcp = ["fixtures/*.json", "config/*.json"]

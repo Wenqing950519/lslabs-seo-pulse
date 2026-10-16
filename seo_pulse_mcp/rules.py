@@ -1,7 +1,7 @@
 """Source of truth: growth/weekly-report-template.md v0.1 (2026-10-16)."""
 RULES = {
     "timezone": "Asia/Taipei", "gsc_lag_days": 3,
-    "production_hosts": ["lslabs.tw"], "canonical_origin": "https://lslabs.tw",
+    "production_hosts": ["example.com"], "canonical_origin": "https://example.com",
     "ai_sources": ["chatgpt.com", "perplexity.ai", "gemini.google.com",
                    "copilot.microsoft.com", "claude.ai"],
     "minimums": {"A1": 20, "A2": 200, "A3": 10, "A4": 20, "A5": 100,

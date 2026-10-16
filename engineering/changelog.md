@@ -1,6 +1,6 @@
 # 2026-10-16
 
-於 app/ 內建立 Python LS-Labs Reports MVP 骨架：FastMCP stdio 工具、可切換的 fixture／Google stub 連接器、兩週假資料、正式網域清理、A1–A14 確定性規則及分析師 P0/P1/P2 計分。CTR 保留可覆寫的暫定值。補上繁中 README、週報 Skill 骨架、MIT 與測試。
+於 app/ 內建立 Python SEO Pulse 流量脈搏 MVP 骨架：FastMCP stdio 工具、可切換的 fixture／Google stub 連接器、兩週假資料、正式網域清理、A1–A14 確定性規則及分析師 P0/P1/P2 計分。CTR 保留可覆寫的暫定值。補上繁中 README、週報 Skill 骨架、MIT 與測試。
 
 尚未串接 OAuth、Google 真實資料、Claude 實際掛載或對外發布；AI 引用為「待 01 研究數據」。
 

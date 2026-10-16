@@ -16,7 +16,9 @@ from .connectors import get_connectors
 from .hosts import exclude_hosts, clean_hosts
 from .anomalies import detect_anomalies as calculate_anomalies
 
-mcp = FastMCP("LS-Labs Reports")
+from .branding import DISPLAY_NAME
+
+mcp = FastMCP("seo-pulse")
 
 
 @mcp.tool()
@@ -72,7 +74,16 @@ def detect_anomalies(current: dict, previous: dict, rules: dict | None = None) -
 
 
 def main():
-    mcp.run(transport="stdio")
+    import argparse
+    parser = argparse.ArgumentParser(description=DISPLAY_NAME)
+    parser.add_argument("command", nargs="?", choices=["auth"])
+    args = parser.parse_args()
+    if args.command == "auth":
+        from .connectors.google import authenticate
+        authenticate()
+        print("Google 唯讀授權已完成。")
+    else:
+        mcp.run(transport="stdio")
 
 
 if __name__ == "__main__":

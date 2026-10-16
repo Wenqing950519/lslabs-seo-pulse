@@ -1,15 +1,15 @@
 from copy import deepcopy
 import json
 import pytest
-from lslabs_reports.anomalies import detect_anomalies, aggregate
+from seo_pulse_mcp.anomalies import detect_anomalies, aggregate
 
 
 def row(clicks=30, impressions=200, position=5, **kw):
-    return dict(query='查詢',page='https://lslabs.tw/',clicks=clicks,impressions=impressions,position=position,**kw)
+    return dict(query='查詢',page='https://example.com/',clicks=clicks,impressions=impressions,position=position,**kw)
 
 
 def ga(sessions=40, events=10, source='google', **kw):
-    return dict(hostName='lslabs.tw',sessions=sessions,keyEvents=events,
+    return dict(hostName='example.com',sessions=sessions,keyEvents=events,
                 sessionDefaultChannelGroup='Organic Search',sessionSource=source,**kw)
 
 
@@ -28,7 +28,7 @@ def case(rule):
     if rule=='A6': now['gsc'][0]['position']=11
     if rule=='A7': now['gsc']=[]
     if rule=='A8': old['gsc']=[]; now['baseline']['gsc']=[]
-    if rule=='A9': now['gsc'][0]['page']='http://www.lslabs.tw/'
+    if rule=='A9': now['gsc'][0]['page']='http://www.example.com/'
     if rule=='A10': now['ga4'][0]['sessions']=28
     if rule=='A11': now['ga4'][0]['keyEvents']=6
     if rule=='A12': old['ga4']=[ga(10,source='chatgpt.com')]; now['ga4']=[ga(15,source='chatgpt.com')]
@@ -79,19 +79,19 @@ def test_baseline_required_and_new_baseline_query():
 
 def test_normalization_weighted_position():
     rows=[row(10,100,5),row(20,200,8)]
-    rows[1]['page']='http://www.lslabs.tw/'
-    result=aggregate(rows,'page')['https://lslabs.tw/']
+    rows[1]['page']='http://www.example.com/'
+    result=aggregate(rows,'page')['https://example.com/']
     assert result==dict(clicks=30,impressions=300,position=7,ctr=.1)
 
 
 def test_ctr_override(tmp_path,monkeypatch):
     p=tmp_path/'ctr.json';p.write_text(json.dumps({'expected_ctr_by_position':{'1':0,'2-3':0,'4-10':0}}))
-    monkeypatch.setenv('LSLABS_CTR_BENCHMARKS_PATH',str(p))
+    monkeypatch.setenv('SEO_PULSE_CTR_BENCHMARKS_PATH',str(p))
     assert 'A5' not in {a['rule'] for a in detect_anomalies(*case('A5'))}
 
 
 def test_priorities_score_and_determinism():
-    now,old=case('A1');now['gsc'][0]['page']='http://lslabs.tw/'
+    now,old=case('A1');now['gsc'][0]['page']='http://example.com/'
     now['ga4'][0]['sessions']=10
     result=detect_anomalies(now,old)
     assert result==detect_anomalies(now,old)

@@ -4,9 +4,9 @@ from .google import GoogleGSCConnector, GoogleGA4Connector
 
 
 def get_connectors():
-    mode = os.getenv("LSLABS_CONNECTOR", "fixture")
+    mode = os.getenv("SEO_PULSE_CONNECTOR", "fixture")
     if mode == "fixture":
         return FixtureGSCConnector(), FixtureGA4Connector()
     if mode == "google":
         return GoogleGSCConnector(), GoogleGA4Connector()
-    raise ValueError("LSLABS_CONNECTOR must be fixture or google")
+    raise ValueError("SEO_PULSE_CONNECTOR must be fixture or google")
