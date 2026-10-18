@@ -1,0 +1,17 @@
+{
+  "name": "seo-pulse",
+  "version": "0.1.0",
+  "description": "唯讀的 Google Search Console／GA4 MCP 伺服器，搭配繁體中文搜尋流量週報 Skill。",
+  "author": {"name": "LS-Labs"},
+  "repository": "https://github.com/Wenqing950519/lslabs-seo-pulse",
+  "license": "MIT",
+  "keywords": ["seo", "gsc", "ga4", "mcp", "weekly-report", "zh-TW"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "SEO Pulse 流量脈搏",
+    "shortDescription": "唯讀 GSC／GA4 數據與繁中搜尋流量週報",
+    "developerName": "LS-Labs",
+    "category": "Productivity"
+  }
+}
