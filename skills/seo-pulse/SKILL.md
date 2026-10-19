@@ -6,7 +6,7 @@ description: 查詢網站的 Google Search Console 與 GA4 搜尋流量、比較
 使用繁體中文。所有工具都是唯讀，不會修改網站；假資料必須明確標示。
 
 ## 開始前：唯讀驗證
-先呼叫 `list_sites`，回報看得到哪些網站與日期範圍，再開始其他查詢。
+先呼叫 `list_sites`，回報看得到哪些網站；再呼叫 `weekly_report`（不帶參數），回報 `periods` 的本週、上週與 baseline 日期範圍（`fixture` 為 true 時註明是假資料），再開始其他查詢。
 
 ## 什麼時候查 GSC、什麼時候查 GA4
 - GSC（`list_sites`、`gsc_query`、`gsc_compare_weeks`）：搜尋曝光、點擊、排名、查詢字、頁面，也就是 Google 搜尋結果裡發生的事。

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("mcp")
+import mcp  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFESTS = [

@@ -7,7 +7,7 @@
   "license": "MIT",
   "keywords": ["seo", "gsc", "ga4", "mcp", "weekly-report", "zh-TW"],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": "./.codex-mcp.json",
   "interface": {
     "displayName": "SEO Pulse 流量脈搏",
     "shortDescription": "唯讀 GSC／GA4 數據與繁中搜尋流量週報",

@@ -1,6 +1,6 @@
 # LS-Labs SEO Pulse 流量脈搏
 
-不改任何東西：先呼叫 `list_sites`，再回報你看得到哪些網站和日期範圍。
+不改任何東西：先呼叫 `list_sites`，回報你看得到哪些網站；再呼叫 `weekly_report`（不帶參數），回報回傳的 `periods` 裡本週、上週與 baseline 各涵蓋哪些日期。若 `fixture` 為 true，請註明是假資料。
 
 **用你自己的 Google Search Console 和 GA4 資料，讓 AI 每週幫你寫繁中搜尋流量週報。**
 
@@ -36,7 +36,8 @@ claude plugin install seo-pulse@lslabs-seo-pulse
 不自動更新；工具描述有任何改變都會換新版本號，指紋見 tool-contract.json。
 
 - 不會自動下載任何東西。要確認是否有新版，請開啟 GitHub master 上的 [`tool-contract.json`](https://github.com/Wenqing950519/lslabs-seo-pulse/blob/master/tool-contract.json)，比對 `version` 與 `fingerprint` 和你本機的副本。
-- 若不同，先看變更紀錄，再手動更新：`git pull` 後重新安裝，或執行 `claude plugin marketplace update lslabs-seo-pulse`，再執行 `claude plugin update seo-pulse@lslabs-seo-pulse`。
+- 若不同，先看變更紀錄，再手動更新：從本機資料夾安裝的不用重裝，`git pull` 後重新開啟 session 即生效；從 GitHub 加入 marketplace 的，要先執行 `claude plugin marketplace update lslabs-seo-pulse`，再執行 `claude plugin update seo-pulse@lslabs-seo-pulse`。
+- 升級 `mcp` 或 `pydantic` 之後，若 `tool-contract.json` 的指紋改變，也算一次版本變更，要換新版本號。
 - `.venv/bin/python scripts/generate_tool_contract.py --check` 可驗證本機伺服器是否與自己的合約一致。
 
 ## 安裝與測試

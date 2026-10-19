@@ -19,7 +19,7 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 
 # 2026-10-18 Plugin 打包＋工具描述固定版本（tool contract）
 
-分支 `feat/plugin-tool-contract`（從 origin/master f756400 開出），只在本機 commit，未推送、未開 PR、未合併；repo 維持 private，沒有上架或發布。規格：`projects/ls-labs-reports/handoffs/2026-10-18-plugin-and-tool-contract.md`。
+分支 `feat/plugin-tool-contract`（從 origin/master f756400 開出），已推送到 GitHub，並開 PR #1（https://github.com/Wenqing950519/lslabs-seo-pulse/pull/1），尚未合併；repo 維持 private，沒有上架或發布。規格：`projects/ls-labs-reports/handoffs/2026-10-18-plugin-and-tool-contract.md`。
 
 ## 改了什麼
 - **Plugin 打包**（repo 根目錄就是 plugin 根目錄）：
@@ -52,3 +52,12 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - Windows 上可能沒有 `python3` 指令，README 請 Windows 使用者改用 pip 方式。
 - `list_sites` 只回傳網站清單，不含日期範圍；這次規格不改工具行為，所以唯讀驗證句裡的「日期範圍」要靠其他工具補。
 - input schema 是由 mcp／pydantic 自動產生，日後升級這兩個套件可能讓 schema 雜湊改變，contract 測試會 fail；這時照提示換版本號重新產生即可。
+
+# 2026-10-19 PR #1 驗收修正
+依 `projects/ls-labs-reports/engineering/2026-10-19-pr1-acceptance-review.md`，在同一個 PR 補一個小 commit：
+- README／總 Skill 的唯讀驗證句改為先 `list_sites`，再用不帶參數的 `weekly_report` 回報 `periods`（`list_sites` 不會回傳日期範圍）。
+- 新增 Codex 專用 `.codex-mcp.json`（不設 env，`cwd: "."`），`.codex-plugin/plugin.json` 改指向它；Claude／Cursor 共用的 `.mcp.json` 不變。Codex 仍只驗證格式。
+- 指紋測試改為直接 `import mcp`，缺依賴時報錯，不再靜默跳過。
+- README 更新說明改寫（本機資料夾安裝免重裝；GitHub marketplace 要先 marketplace update 再 plugin update），並補「升級 mcp／pydantic 後指紋改變也要換版本號」。
+- `.claude-plugin/marketplace.json` 補最外層 `description`，`claude plugin validate --strict` 通過。
+- 工具未改動，`tool-contract.json` 不需重新產生，版本維持 0.1.0。
