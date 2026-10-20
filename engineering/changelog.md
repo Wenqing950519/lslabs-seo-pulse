@@ -74,4 +74,5 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - 以 MCP stdio 用戶端用同一 uv 命令呼叫 `weekly_report`（fixture）成功；隔離環境含 mcp 1.30.0 與 Google 套件。
 - pytest：121 passed（原 119 + 2）。
 - 真實資料：同日以 `sc-domain:lslabs.tw` 與 LS-Labs 的 GA4 資源，經 Desktop OAuth 唯讀授權，`weekly_report` JSON 正常回傳；憑證與 token 都在 repo 外。
-- 未驗證：Codex、Cursor 實際掛載；從 GitHub marketplace 安裝（repo 改公開後再測）。
+- repo 改公開後（同日）：`claude plugin marketplace add Wenqing950519/lslabs-seo-pulse` 與 `plugin install seo-pulse@lslabs-seo-pulse`（local scope）在 Windows 11 安裝成功，快取於 `~/.claude/plugins/cache/lslabs-seo-pulse/seo-pulse/0.1.0`，`claude mcp list` ✔ Connected；以同一 uv 命令呼叫 `list_sites` 與 `weekly_report(format="markdown")` 正常。測完已解除安裝、移除 marketplace 與快取。
+- 未驗證：Codex、Cursor 實際掛載。
