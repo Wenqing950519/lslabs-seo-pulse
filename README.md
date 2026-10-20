@@ -4,10 +4,10 @@
 
 **用你自己的 Google Search Console 和 GA4 資料，讓 AI 每週幫你寫繁中搜尋流量週報。**
 
-SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中週報 Skill。接上 Claude 或 ChatGPT 之後，AI 會讀取你網站最近兩週的 GSC 與 GA4 數據，比較週對週變化，用固定規則找出異常，再寫成一份有摘要、異常和建議優先序的週報。
+SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中週報 Skill。接上 Claude Code、Claude Desktop 或其他支援 MCP 的 AI 工具之後，AI 會讀取你網站最近兩週的 GSC 與 GA4 數據，比較週對週變化，用固定規則找出異常，再寫成一份有摘要、異常和建議優先序的週報。
 
 - **你的資料留在你手上**：使用你自己建立的 Google OAuth 憑證，只申請 `webmasters.readonly` 和 `analytics.readonly` 兩個唯讀權限，token 存在你的電腦，不經過我們的伺服器。
-- **推理用你自己的 AI**：週報由你已經在用的 Claude 或 ChatGPT 撰寫，工具本身不呼叫任何模型 API。<!-- TODO: ChatGPT 掛載方式驗收後再寫 -->
+- **推理用你自己的 AI**：週報由你已經在用的 AI 撰寫，工具本身不呼叫任何模型 API。目前實際驗證過 Claude Code 與 Claude Desktop；Codex、Cursor 只驗過設定格式。
 - **異常判斷看得懂、測得到**：14 條異常規則（例如點擊驟降、排名掉出前 10、資料缺漏日）都是確定性計算，附單元測試，門檻可以自己覆寫。
 - **小站也不誤報**：每條規則都有最低流量門檻；GA4 會先排除 localhost 和測試網域的流量再計算。
 
@@ -17,15 +17,16 @@ SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中�
 
 ### 方式一：Plugin（Claude Code）
 
-需要 Python 3.10+，且 PATH 上的 `python3` 已安裝 MCP SDK：`python3 -m pip install "mcp>=1,<2"`（Google 模式另需 `[google]` 依賴）。
+只需先安裝 [uv](https://docs.astral.sh/uv/)：macOS／Linux 執行 `curl -LsSf https://astral.sh/uv/install.sh | sh`，Windows 執行 `winget install astral-sh.uv`。Python 與套件由 uv 依 `uv.lock` 建在 plugin 自己的隔離環境，不碰你系統的 Python，也不用手動 pip install。
 
 ```bash
-claude plugin marketplace add /absolute/path/to/lslabs-seo-pulse
-# 取得 repo 存取權後也可用：claude plugin marketplace add Wenqing950519/lslabs-seo-pulse
+claude plugin marketplace add Wenqing950519/lslabs-seo-pulse
 claude plugin install seo-pulse@lslabs-seo-pulse
 ```
 
-另附 Codex（`.codex-plugin/plugin.json`）與 Cursor（`.cursor-plugin/plugin.json`）manifest，目前只驗證過格式，尚未實際掛載測試。Windows 若 PATH 上沒有 `python3`，請改用方式二。
+也可以先 clone 再用本機路徑：`claude plugin marketplace add /absolute/path/to/lslabs-seo-pulse`。第一次啟動會下載依賴，約需數十秒。Windows、macOS、Linux 走同一套設定，Windows 11 已實測連線成功。
+
+另附 Codex（`.codex-plugin/plugin.json`）與 Cursor（`.cursor-plugin/plugin.json`）manifest，啟動方式相同，目前只驗證過格式，尚未實際掛載測試。
 
 ### 方式二：pip install（備援）
 
@@ -154,7 +155,7 @@ current = {
 
 CTR 暫定值位於 `seo_pulse_mcp/config/ctr_benchmarks.json`，可用 `SEO_PULSE_CTR_BENCHMARKS_PATH` 或 `rules.ctr_benchmarks_path` 指向同格式 JSON，也可傳 `rules.expected_ctr_by_position`。這些值不是產業引用，累積 **4 週真實資料後須替換**為本站歷史中位數。
 
-`skill/SKILL.md` 是繁中週報流程骨架，仍需在 Claude 實際掛載驗證；AI 引用固定為「待 01 研究數據」。尚未驗證真實資料、OAuth 或發布流程，程式不修改網站。
+`skill/SKILL.md` 與 `skills/seo-pulse/SKILL.md` 是繁中週報流程；AI 引用目前固定為「待 01 研究數據」，待對應研究完成後替換。2026-10-21 已用 LS-Labs 自有網站的真實 GSC／GA4 資料與 Desktop OAuth 驗證過 `weekly_report`；Codex、Cursor 的實際掛載與對外發布流程尚未驗證。程式不修改網站。
 
 ---
 免費、開源（MIT）。由 LS-Labs 製作。

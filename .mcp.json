@@ -1,11 +1,18 @@
 {
   "mcpServers": {
     "seo-pulse": {
-      "command": "python3",
-      "args": ["-m", "seo_pulse_mcp.server"],
-      "env": {
-        "PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}"
-      }
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "--extra",
+        "google",
+        "--quiet",
+        "python",
+        "-m",
+        "seo_pulse_mcp.server"
+      ]
     }
   }
 }

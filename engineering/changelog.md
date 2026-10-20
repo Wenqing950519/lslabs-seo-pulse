@@ -61,3 +61,17 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - README 更新說明改寫（本機資料夾安裝免重裝；GitHub marketplace 要先 marketplace update 再 plugin update），並補「升級 mcp／pydantic 後指紋改變也要換版本號」。
 - `.claude-plugin/marketplace.json` 補最外層 `description`，`claude plugin validate --strict` 通過。
 - 工具未改動，`tool-contract.json` 不需重新產生，版本維持 0.1.0。
+
+# 2026-10-21 Plugin 改用 uv 啟動；真實資料驗證；v0.1.0
+
+- 問題：`.mcp.json` 用裸 `python3` 啟動。Windows 的 PATH 上 `python3` 通常是 Microsoft Store 空殼，plugin 裝完連不上；而且使用者得先手動在系統 Python 裝 mcp 與 Google 套件。
+- 修正：`.mcp.json`、`.codex-mcp.json` 改為 `uv run --project <root> --extra google --quiet python -m seo_pulse_mcp.server`，並提交 `uv.lock`（65 個套件）。uv 在 plugin 目錄建立隔離環境，不碰系統 Python，使用者只需先裝 uv。新增 `tests/test_plugin_launch.py` 鎖住「不得裸用 python3」與「uv.lock 必須提交」；`test_tool_contract.py` 的 args 斷言改為只看入口模組。
+- 工具未改動，`tool-contract.json` 指紋不變；版本維持 0.1.0，打 `v0.1.0` 標籤作為第一個公開版本。
+- README：安裝章節改寫為先裝 uv，再 `marketplace add`／`plugin install`；移除「尚未驗證真實資料、OAuth」與 ChatGPT TODO，改寫為實際驗證狀態。
+
+驗證：
+- Windows 11、uv 0.13.3、Claude Code 2.1.301：在暫存專案以 local scope 從本機路徑加入 marketplace 並安裝，`claude mcp list` 顯示 `plugin:seo-pulse:seo-pulse ✔ Connected`，啟動命令為 uv；測完已移除。
+- 以 MCP stdio 用戶端用同一 uv 命令呼叫 `weekly_report`（fixture）成功；隔離環境含 mcp 1.30.0 與 Google 套件。
+- pytest：121 passed（原 119 + 2）。
+- 真實資料：同日以 `sc-domain:lslabs.tw` 與 LS-Labs 的 GA4 資源，經 Desktop OAuth 唯讀授權，`weekly_report` JSON 正常回傳；憑證與 token 都在 repo 外。
+- 未驗證：Codex、Cursor 實際掛載；從 GitHub marketplace 安裝（repo 改公開後再測）。

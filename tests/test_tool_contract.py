@@ -79,7 +79,7 @@ def test_plugin_manifests_sanity():
         json.loads(path.read_text(encoding="utf-8"))
 
     mcp_cfg = json.loads((ROOT / ".mcp.json").read_text(encoding="utf-8"))
-    assert mcp_cfg["mcpServers"]["seo-pulse"]["args"] == ["-m", "seo_pulse_mcp.server"]
+    assert mcp_cfg["mcpServers"]["seo-pulse"]["args"][-3:] == ["python", "-m", "seo_pulse_mcp.server"]
 
     for path in MANIFESTS:
         manifest = json.loads(path.read_text(encoding="utf-8"))
