@@ -1,4 +1,4 @@
-# LS-Labs SEO Pulse 流量脈搏
+# LS-Labs SEO Pulse
 
 不改任何東西：先呼叫 `list_sites`，回報你看得到哪些網站；再呼叫 `weekly_report`（不帶參數），回報回傳的 `periods` 裡本週、上週與 baseline 各涵蓋哪些日期。若 `fixture` 為 true，請註明是假資料。
 

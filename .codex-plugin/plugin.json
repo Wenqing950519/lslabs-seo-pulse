@@ -9,7 +9,7 @@
   "skills": "./skills/",
   "mcpServers": "./.codex-mcp.json",
   "interface": {
-    "displayName": "SEO Pulse 流量脈搏",
+    "displayName": "SEO Pulse",
     "shortDescription": "唯讀 GSC／GA4 數據與繁中搜尋流量週報",
     "developerName": "LS-Labs",
     "category": "Productivity"

@@ -1,7 +1,7 @@
 {
   "name": "lslabs-seo-pulse",
   "owner": {"name": "LS-Labs"},
-  "description": "LS-Labs SEO Pulse 流量脈搏：唯讀 GSC／GA4 MCP 伺服器與繁中搜尋流量週報 Skill。",
+  "description": "LS-Labs SEO Pulse：唯讀 GSC／GA4 MCP 伺服器與繁中搜尋流量週報 Skill。",
   "plugins": [
     {
       "name": "seo-pulse",
