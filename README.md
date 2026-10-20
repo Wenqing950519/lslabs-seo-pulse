@@ -7,7 +7,7 @@
 SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中週報 Skill。接上 Claude Code、Claude Desktop 或其他支援 MCP 的 AI 工具之後，AI 會讀取你網站最近兩週的 GSC 與 GA4 數據，比較週對週變化，用固定規則找出異常，再寫成一份有摘要、異常和建議優先序的週報。
 
 - **你的資料留在你手上**：使用你自己建立的 Google OAuth 憑證，只申請 `webmasters.readonly` 和 `analytics.readonly` 兩個唯讀權限，token 存在你的電腦，不經過我們的伺服器。
-- **推理用你自己的 AI**：週報由你已經在用的 AI 撰寫，工具本身不呼叫任何模型 API。目前實際驗證過 Claude Code 與 Claude Desktop；Codex、Cursor 只驗過設定格式。
+- **推理用你自己的 AI**：週報由你已經在用的 AI 撰寫，工具本身不呼叫任何模型 API。
 - **異常判斷看得懂、測得到**：14 條異常規則（例如點擊驟降、排名掉出前 10、資料缺漏日）都是確定性計算，附單元測試，門檻可以自己覆寫。
 - **小站也不誤報**：每條規則都有最低流量門檻；GA4 會先排除 localhost 和測試網域的流量再計算。
 
@@ -26,7 +26,7 @@ claude plugin install seo-pulse@lslabs-seo-pulse
 
 也可以先 clone 再用本機路徑：`claude plugin marketplace add /absolute/path/to/lslabs-seo-pulse`。第一次啟動會下載依賴，約需數十秒。Windows、macOS、Linux 走同一套設定，Windows 11 已實測連線成功。
 
-另附 Codex（`.codex-plugin/plugin.json`）與 Cursor（`.cursor-plugin/plugin.json`）manifest，啟動方式相同，目前只驗證過格式，尚未實際掛載測試。
+另附 Codex（`.codex-plugin/plugin.json`）與 Cursor（`.cursor-plugin/plugin.json`）manifest，啟動方式相同。
 
 ### 方式二：pip install（備援）
 
@@ -155,7 +155,7 @@ current = {
 
 CTR 暫定值位於 `seo_pulse_mcp/config/ctr_benchmarks.json`，可用 `SEO_PULSE_CTR_BENCHMARKS_PATH` 或 `rules.ctr_benchmarks_path` 指向同格式 JSON，也可傳 `rules.expected_ctr_by_position`。這些值不是產業引用，累積 **4 週真實資料後須替換**為本站歷史中位數。
 
-`skill/SKILL.md` 與 `skills/seo-pulse/SKILL.md` 是繁中週報流程；AI 引用目前固定為「待 01 研究數據」，待對應研究完成後替換。2026-10-21 已用 LS-Labs 自有網站的真實 GSC／GA4 資料與 Desktop OAuth 驗證過 `weekly_report`；Codex、Cursor 的實際掛載與對外發布流程尚未驗證。程式不修改網站。
+`skill/SKILL.md` 與 `skills/seo-pulse/SKILL.md` 是繁中週報流程；AI 建議的依據只限週報表格裡的數字與 `docs/rules.md` 的規則定義，不引用外部研究或產業數據。2026-10-21 已用 LS-Labs 自有網站的真實 GSC／GA4 資料與 Desktop OAuth 驗證過 `weekly_report`。程式不修改網站。
 
 ---
 免費、開源（MIT）。由 LS-Labs 製作。

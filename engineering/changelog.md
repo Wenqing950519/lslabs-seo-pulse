@@ -76,3 +76,9 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - 真實資料：同日以 `sc-domain:lslabs.tw` 與 LS-Labs 的 GA4 資源，經 Desktop OAuth 唯讀授權，`weekly_report` JSON 正常回傳；憑證與 token 都在 repo 外。
 - repo 改公開後（同日）：`claude plugin marketplace add Wenqing950519/lslabs-seo-pulse` 與 `plugin install seo-pulse@lslabs-seo-pulse`（local scope）在 Windows 11 安裝成功，快取於 `~/.claude/plugins/cache/lslabs-seo-pulse/seo-pulse/0.1.0`，`claude mcp list` ✔ Connected；以同一 uv 命令呼叫 `list_sites` 與 `weekly_report(format="markdown")` 正常。測完已解除安裝、移除 marketplace 與快取。
 - 未驗證：Codex、Cursor 實際掛載。
+
+# 2026-10-21 Skill 引用規則改寫；README 文字整理
+
+- 兩份 Skill（`skill/SKILL.md`、`skills/seo-pulse/SKILL.md`）改寫：第 6 條「AI 引用：待 01 研究數據」改為「建議的依據只限週報表格數字與 `docs/rules.md` 規則定義，不引用外部研究、產業數據或 LS-Labs 研究結論」；補上摘要與建議的寫法順序、小樣本只寫觀察不寫動作、不替使用者決定門檻。工具未改，tool-contract 不變。
+- README：移除 Codex／Cursor 與驗證狀態的說明文字，只保留安裝方式；週報流程段落改寫為新的引用規則。
+- 決定：CTR 基準值 2026 年 11 月中旬累積四週真實資料後換成本站中位數；Codex、Cursor 不另行實測。
