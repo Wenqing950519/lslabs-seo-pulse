@@ -1,5 +1,7 @@
 # LS-Labs SEO Pulse 流量脈搏
 
+不改任何東西：先呼叫 `list_sites`，回報你看得到哪些網站；再呼叫 `weekly_report`（不帶參數），回報回傳的 `periods` 裡本週、上週與 baseline 各涵蓋哪些日期。若 `fixture` 為 true，請註明是假資料。
+
 **用你自己的 Google Search Console 和 GA4 資料，讓 AI 每週幫你寫繁中搜尋流量週報。**
 
 SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中週報 Skill。接上 Claude 或 ChatGPT 之後，AI 會讀取你網站最近兩週的 GSC 與 GA4 數據，比較週對週變化，用固定規則找出異常，再寫成一份有摘要、異常和建議優先序的週報。
@@ -10,6 +12,33 @@ SEO Pulse 是一個在你電腦上執行的 MCP 伺服器，加上一份繁中�
 - **小站也不誤報**：每條規則都有最低流量門檻；GA4 會先排除 localhost 和測試網域的流量再計算。
 
 顯示名稱可能在公開發布前調整；程式以 `seo_pulse_mcp/branding.py` 的 `DISPLAY_NAME` 與 `FOOTER` 為準。
+
+## 安裝
+
+### 方式一：Plugin（Claude Code）
+
+需要 Python 3.10+，且 PATH 上的 `python3` 已安裝 MCP SDK：`python3 -m pip install "mcp>=1,<2"`（Google 模式另需 `[google]` 依賴）。
+
+```bash
+claude plugin marketplace add /absolute/path/to/lslabs-seo-pulse
+# 取得 repo 存取權後也可用：claude plugin marketplace add Wenqing950519/lslabs-seo-pulse
+claude plugin install seo-pulse@lslabs-seo-pulse
+```
+
+另附 Codex（`.codex-plugin/plugin.json`）與 Cursor（`.cursor-plugin/plugin.json`）manifest，目前只驗證過格式，尚未實際掛載測試。Windows 若 PATH 上沒有 `python3`，請改用方式二。
+
+### 方式二：pip install（備援）
+
+照下方「安裝與測試」的 venv／pip 步驟安裝，再依「掛載到 Claude」的 Claude Desktop MCP JSON 或 `claude mcp add` 設定。
+
+## 版本與更新
+
+不自動更新；工具描述有任何改變都會換新版本號，指紋見 tool-contract.json。
+
+- 不會自動下載任何東西。要確認是否有新版，請開啟 GitHub master 上的 [`tool-contract.json`](https://github.com/Wenqing950519/lslabs-seo-pulse/blob/master/tool-contract.json)，比對 `version` 與 `fingerprint` 和你本機的副本。
+- 若不同，先看變更紀錄，再手動更新：從本機資料夾安裝的不用重裝，`git pull` 後重新開啟 session 即生效；從 GitHub 加入 marketplace 的，要先執行 `claude plugin marketplace update lslabs-seo-pulse`，再執行 `claude plugin update seo-pulse@lslabs-seo-pulse`。
+- 升級 `mcp` 或 `pydantic` 之後，若 `tool-contract.json` 的指紋改變，也算一次版本變更，要換新版本號。
+- `.venv/bin/python scripts/generate_tool_contract.py --check` 可驗證本機伺服器是否與自己的合約一致。
 
 ## 安裝與測試
 
