@@ -8,6 +8,17 @@ description: 查詢網站的 Google Search Console 與 GA4 搜尋流量、比較
 ## 開始前：唯讀驗證
 先呼叫 `list_sites`，回報看得到哪些網站；再呼叫 `weekly_report`（不帶參數），回報 `periods` 的本週、上週與 baseline 日期範圍。確認資料來源與期間正確後，再開始其他查詢。
 
+需要指定特定網站或 GA4 資源時：
+
+- `gsc_query`、`gsc_compare_weeks`、`weekly_report` 可傳 `site_url`（例如 `sc-domain:example.com` 或 `https://example.com/`）。
+- `ga4_report`、`ga4_compare_weeks`、`weekly_report` 可傳 `property_id`（純數字的 GA4 資源 ID），不知道 ID 時先呼叫 `list_ga4_properties`。
+- 這三個 GA4 工具也都能傳 `production_hosts` 覆寫正式網域清單。
+- 本機版沒傳時使用伺服器環境變數的預設值。
+- 雲端版（例如在 ChatGPT 使用）沒有預設網站：先 `list_sites` 與 `list_ga4_properties`，請使用者確認要看哪個網站與資源，再帶 `site_url` 與 `property_id` 呼叫 `weekly_report`。
+- 格式錯誤會回傳清楚的錯誤訊息。
+
+資料品質出現「同網域其他子網域…未計入」時，照實轉述，並問使用者這些子網域是否也是正式站；是的話用 `production_hosts` 重新產生週報。
+
 ## 什麼時候查 GSC、什麼時候查 GA4
 - GSC（`list_sites`、`gsc_query`、`gsc_compare_weeks`）：搜尋曝光、點擊、排名、查詢字、頁面，也就是 Google 搜尋結果裡發生的事。
 - GA4（`ga4_report`、`ga4_compare_weeks`）：進站後的 sessions、key events、流量管道與來源。

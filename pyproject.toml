@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seo-pulse-mcp"
-version = "0.1.0"
+version = "0.3.0"
 description = "SEO Pulse: local marketing reports MCP"
 authors = [{name="LS-Labs"}]
 requires-python = ">=3.10"

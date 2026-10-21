@@ -5,14 +5,15 @@ from unittest.mock import Mock, patch
 
 import pytest
 g = pytest.importorskip('seo_pulse_mcp.connectors.google')
+creds = pytest.importorskip('seo_pulse_mcp.connectors.credentials')
 
 
 @pytest.fixture(autouse=True)
 def offline(tmp_path, monkeypatch):
     monkeypatch.setenv('SEO_PULSE_TOKEN_DIR', str(tmp_path / 'tokens'))
     monkeypatch.delenv('SEO_PULSE_GOOGLE_CLIENT_SECRET', raising=False)
-    with patch.object(g.InstalledAppFlow, 'from_client_secrets_file', side_effect=AssertionError('No sign-in')), \
-         patch.object(g, 'Request', side_effect=AssertionError('No network')), \
+    with patch.object(creds.InstalledAppFlow, 'from_client_secrets_file', side_effect=AssertionError('No sign-in')), \
+         patch.object(creds, 'Request', side_effect=AssertionError('No network')), \
          patch('socket.socket.connect', side_effect=AssertionError('No network')):
         yield
 
@@ -43,8 +44,8 @@ def test_refresh(tmp_path):
     path.write_text(json.dumps({'scopes': list(g.GSC_SCOPES)}))
     credentials = Mock(expired=True, refresh_token='refresh', valid=True)
     credentials.to_json.return_value = '{"refreshed": true}'
-    with patch.object(g.Credentials, 'from_authorized_user_info', return_value=credentials) as load, \
-         patch.object(g, 'Request', return_value='transport'):
+    with patch.object(creds.Credentials, 'from_authorized_user_info', return_value=credentials) as load, \
+         patch.object(creds, 'Request', return_value='transport'):
         assert g._credentials('gsc') is credentials
     credentials.refresh.assert_called_once_with('transport')
     assert load.call_args.kwargs['scopes'] == list(g.GSC_SCOPES)
@@ -69,7 +70,7 @@ def test_explicit_auth(tmp_path, monkeypatch):
     credentials.to_json.return_value = '{}'
     flow = Mock()
     flow.run_local_server.return_value = credentials
-    with patch.object(g.InstalledAppFlow, 'from_client_secrets_file', return_value=flow) as factory:
+    with patch.object(creds.InstalledAppFlow, 'from_client_secrets_file', return_value=flow) as factory:
         g.authenticate()
     assert [call.kwargs['scopes'] for call in factory.call_args_list] == [list(g.GSC_SCOPES), list(g.GA4_SCOPES)]
     assert flow.run_local_server.call_count == 2
@@ -84,7 +85,7 @@ def test_gsc_mapping_paging():
     client.sites.return_value.list.return_value.execute.return_value = {
         'siteEntry': [{'siteUrl': 'sc-domain:example.com', 'permissionLevel': 'siteOwner'}]}
     connector = g.GoogleGSCConnector(factory, 'sc-domain:example.com')
-    with patch.object(g, '_credentials', return_value='credentials'):
+    with patch.object(creds, '_credentials', return_value='credentials'):
         assert connector.list_sites()[0]['siteUrl'] == 'sc-domain:example.com'
         rows = connector.query('2026-01-01', '2026-01-02', ['query'], {'page': 'https://example.com/'})
     assert rows[0] == dict(query='term', clicks=2, impressions=10, position=4, ctr=.2)
@@ -105,7 +106,7 @@ def test_ga4_mapping_paging_and_hosts():
     client.run_report.side_effect = [NS(rows=[row('example.com')], row_count=2),
                                      NS(rows=[row('localhost')], row_count=2)]
     factory = Mock(return_value=client)
-    with patch.object(g, '_credentials', return_value='credentials'):
+    with patch.object(creds, '_credentials', return_value='credentials'):
         rows = g.GoogleGA4Connector(factory, '123').report('2026-01-01', '2026-01-02')
     assert rows[0] == dict(date='2026-01-01', hostName='example.com',
                           sessionDefaultChannelGroup='Organic Search', sessionSource='google',
@@ -129,9 +130,9 @@ def test_failed_refresh_requires_auth(tmp_path):
     path.parent.mkdir()
     path.write_text(json.dumps({'scopes': list(g.GA4_SCOPES)}))
     credentials = Mock(expired=True, refresh_token='revoked', valid=False)
-    credentials.refresh.side_effect = g.RefreshError('revoked')
-    with patch.object(g.Credentials, 'from_authorized_user_info', return_value=credentials), \
-         patch.object(g, 'Request', return_value='transport'):
+    credentials.refresh.side_effect = creds.RefreshError('revoked')
+    with patch.object(creds.Credentials, 'from_authorized_user_info', return_value=credentials), \
+         patch.object(creds, 'Request', return_value='transport'):
         with pytest.raises(RuntimeError, match='seo-pulse auth'):
             g._credentials('ga4')
 
@@ -141,6 +142,30 @@ def test_valid_cache_no_refresh(tmp_path):
     path.parent.mkdir()
     path.write_text(json.dumps({'scopes': list(g.GA4_SCOPES)}))
     credentials = Mock(expired=False, valid=True)
-    with patch.object(g.Credentials, 'from_authorized_user_info', return_value=credentials):
+    with patch.object(creds.Credentials, 'from_authorized_user_info', return_value=credentials):
         assert g._credentials('ga4') is credentials
     credentials.refresh.assert_not_called()
+
+
+def test_custom_credential_provider_injected():
+    """A9: connectors accept any CredentialProvider, not just LocalFileCredentialProvider."""
+    calls = []
+
+    class FakeProvider(creds.CredentialProvider):
+        def get(self, service, context=None):
+            calls.append((service, context))
+            return 'fake-credentials'
+
+    gsc_factory = Mock()
+    gsc_factory.return_value.sites.return_value.list.return_value.execute.return_value = {'siteEntry': []}
+    gsc = g.GoogleGSCConnector(gsc_factory, 'sc-domain:example.com', credential_provider=FakeProvider())
+    gsc.list_sites()
+
+    ga4_factory = Mock()
+    ga4_factory.return_value.run_report.return_value = NS(rows=[], row_count=0)
+    ga4 = g.GoogleGA4Connector(ga4_factory, '123', credential_provider=FakeProvider())
+    ga4.report('2026-01-01', '2026-01-02')
+
+    assert calls == [('gsc', None), ('ga4', None)]
+    assert gsc_factory.call_args.kwargs['credentials'] == 'fake-credentials'
+    assert ga4_factory.call_args.kwargs['credentials'] == 'fake-credentials'

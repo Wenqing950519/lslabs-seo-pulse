@@ -46,3 +46,6 @@ class FixtureGA4Connector(GA4Connector):
 
     def report(self, start_date, end_date):
         return date_rows(self.data["ga4"], start_date, end_date)
+
+    def list_properties(self):
+        return [{"property_id": "123456789", "display_name": "示範資源", "account_name": "示範帳戶", "fake": True}]

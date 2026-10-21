@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "seo-pulse",
+  "version": "0.3.0",
+  "description": "唯讀讀取你的 Google Search Console 與 GA4，在對話裡產出繁體中文搜尋流量週報。",
+  "author": {"name": "LS-Labs"},
+  "license": "MIT",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "SEO Pulse",
+        "shortDescription": "GSC 與 GA4 繁中搜尋流量週報",
+        "longDescription": "SEO Pulse 以唯讀權限讀取你自己的 Google Search Console 與 GA4，伺服器端算好本週、上週與前四週平均，套用固定的異常規則，產出繁體中文搜尋流量週報。表格數字由程式產生，AI 只撰寫摘要與建議兩段。所有工具都是唯讀，不會修改網站或 Google 設定。LS-Labs 不保存你的 Google 授權或報表資料。",
+        "developerName": "LS-Labs",
+        "category": "Productivity",
+        "capabilities": ["Read"],
+        "websiteURL": "https://lslabs.tw/seo-pulse/",
+        "privacyPolicyURL": "https://lslabs.tw/seo-pulse/privacy/",
+        "termsOfServiceURL": "https://lslabs.tw/seo-pulse/terms/",
+        "defaultPrompt": [
+          "用 SEO Pulse 產生我網站上週的搜尋流量週報",
+          "用 SEO Pulse 比較這週和上週的 GSC 點擊與曝光"
+        ],
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/icon.png"
+      }
+    }
+  }
+}

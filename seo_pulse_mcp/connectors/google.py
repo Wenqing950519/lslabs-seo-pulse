@@ -1,72 +1,21 @@
 """Small, independently written adapters for Google's read-only reporting APIs."""
-import json
 import os
-import tempfile
 from datetime import date, datetime
-from pathlib import Path
 
-from google.auth.exceptions import RefreshError
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 
 from .base import GSCConnector, GA4Connector
-
-GSC_SCOPES = ("https://www.googleapis.com/auth/webmasters.readonly",)
-GA4_SCOPES = ("https://www.googleapis.com/auth/analytics.readonly",)
-AUTH_REQUIRED = "Google 授權無效或尚未設定，請先執行 seo-pulse auth。"
-
-
-def _save_token(path, credentials):
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    # Atomic replacement with owner-only permissions, including existing caches.
-    fd, temporary = tempfile.mkstemp(dir=path.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as stream:
-            stream.write(credentials.to_json())
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
-
-
-def _credentials(service, *, interactive=False):
-    scopes = {"gsc": GSC_SCOPES, "ga4": GA4_SCOPES}[service]
-    path = Path(os.environ.get("SEO_PULSE_TOKEN_DIR", "~/.config/seo-pulse/tokens")).expanduser() / f"{service}.json"
-    credentials = None
-    if path.is_file():
-        try:
-            # Check stored grants before loading: never reuse broader scopes.
-            info = json.loads(path.read_text(encoding="utf-8"))
-            if set(info.get("scopes", [])) == set(scopes):
-                credentials = Credentials.from_authorized_user_info(info, scopes=list(scopes))
-        except (ValueError, KeyError):
-            credentials = None
-    if credentials and credentials.expired and credentials.refresh_token:
-        try:
-            credentials.refresh(Request())
-            _save_token(path, credentials)
-        except RefreshError:
-            credentials = None
-    if credentials and credentials.valid:
-        return credentials
-    if not interactive:
-        raise RuntimeError(AUTH_REQUIRED)
-    secret = os.environ.get("SEO_PULSE_GOOGLE_CLIENT_SECRET")
-    if not secret or not Path(secret).expanduser().is_file():
-        raise RuntimeError("請設定 SEO_PULSE_GOOGLE_CLIENT_SECRET，指向 repo 外的 OAuth Desktop client_secret JSON 檔案。")
-    flow = InstalledAppFlow.from_client_secrets_file(str(Path(secret).expanduser()), scopes=list(scopes))
-    credentials = flow.run_local_server(port=0, access_type="offline", prompt="consent")
-    _save_token(path, credentials)
-    return credentials
-
-
-def authenticate():
-    """Interactive entry point called only by the explicit auth CLI command."""
-    for service in ("gsc", "ga4"):
-        _credentials(service, interactive=True)
+from .credentials import (  # noqa: F401 (re-exported for backward-compatible access)
+    AUTH_REQUIRED,
+    GA4_SCOPES,
+    GSC_SCOPES,
+    CredentialProvider,
+    LocalFileCredentialProvider,
+    _credentials,
+    authenticate,
+    local_provider,
+)
 
 
 def _dates(start, end):
@@ -75,12 +24,15 @@ def _dates(start, end):
 
 
 class GoogleGSCConnector(GSCConnector):
-    def __init__(self, client_factory=None, site_url=None):
+    def __init__(self, client_factory=None, site_url=None, credential_provider=None, credential_context=None):
         self.client_factory = client_factory or build
         self.site_url = site_url
+        self.credential_provider = credential_provider or local_provider()
+        self.credential_context = credential_context
 
     def _client(self):
-        return self.client_factory("searchconsole", "v1", credentials=_credentials("gsc"), cache_discovery=False)
+        credentials = self.credential_provider.get("gsc", self.credential_context)
+        return self.client_factory("searchconsole", "v1", credentials=credentials, cache_discovery=False)
 
     def list_sites(self):
         return self._client().sites().list().execute().get("siteEntry", [])
@@ -115,16 +67,42 @@ class GoogleGSCConnector(GSCConnector):
 
 
 class GoogleGA4Connector(GA4Connector):
-    def __init__(self, client_factory=None, property_id=None):
+    def __init__(self, client_factory=None, property_id=None, credential_provider=None,
+                 credential_context=None, admin_factory=None):
         self.client_factory = client_factory or BetaAnalyticsDataClient
+        self.admin_factory = admin_factory or build
         self.property_id = property_id
+        self.credential_provider = credential_provider or local_provider()
+        self.credential_context = credential_context
+
+    def list_properties(self):
+        """GA4 properties this Google account can read (Analytics Admin API, read-only scope)."""
+        credentials = self.credential_provider.get("ga4", self.credential_context)
+        admin = self.admin_factory("analyticsadmin", "v1beta", credentials=credentials, cache_discovery=False)
+        result, token = [], None
+        while True:
+            try:
+                page = admin.accountSummaries().list(pageSize=200, pageToken=token).execute()
+            except Exception as exc:  # googleapiclient.errors.HttpError; kept generic for the optional extra
+                if "SERVICE_DISABLED" in str(exc) or "has not been used" in str(exc):
+                    raise RuntimeError("Google Cloud 專案尚未啟用 Google Analytics Admin API，"
+                                       "請改從 GA4「管理 → 資源設定」查詢資源 ID。") from None
+                raise
+            for account in page.get("accountSummaries", []):
+                for prop in account.get("propertySummaries", []):
+                    result.append({"property_id": prop["property"].split("/")[-1],
+                                   "display_name": prop.get("displayName", ""),
+                                   "account_name": account.get("displayName", "")})
+            token = page.get("nextPageToken")
+            if not token:
+                return result
 
     def report(self, start_date, end_date):
         _dates(start_date, end_date)
         property_id = self.property_id or os.environ.get("SEO_PULSE_GA4_PROPERTY_ID")
         if not property_id:
             raise RuntimeError("請設定 SEO_PULSE_GA4_PROPERTY_ID。")
-        client = self.client_factory(credentials=_credentials("ga4"))
+        client = self.client_factory(credentials=self.credential_provider.get("ga4", self.credential_context))
         dimensions = ["date", "hostName", "sessionDefaultChannelGroup", "sessionSource"]
         metrics = ["sessions", "keyEvents"]
         result, offset = [], 0

@@ -1,0 +1,21 @@
+.git
+.venv
+.pytest_cache
+**/__pycache__
+*.egg-info
+tests
+scripts
+examples
+docs
+engineering
+skill
+skills
+distribution
+dist
+.claude-plugin
+.codex-plugin
+.cursor-plugin
+.env
+# Keeps stray credentials (client_secret*.json, tokens) out of the image; package data stays.
+*.json
+!seo_pulse_mcp/**/*.json
