@@ -45,7 +45,8 @@ def _movers(rows, old_rows, dimension, origin):
             for key, item in ranked[:TOP_MOVERS]]
 
 
-def build_weekly_report(gsc, ga4, settings, end_date=None, top_n=20, now=None, rules=None):
+def build_weekly_report(gsc, ga4, settings, end_date=None, top_n=20, now=None, rules=None,
+                        production_hosts=None):
     end = date.fromisoformat(end_date) if end_date else settings.default_end_date(now)
     if top_n < 1:
         raise ValueError("top_n must be >= 1")
@@ -65,8 +66,8 @@ def build_weekly_report(gsc, ga4, settings, end_date=None, top_n=20, now=None, r
                              "impressions": r["impressions"] / BASELINE_WEEKS} for r in baseline_rows]}
 
     # Clean GA4 once so data quality is measured on the raw rows.
-    ga_now, quality_now = clean_hosts(ga4.report(*iso(current)), settings=settings)
-    ga_old, quality_old = clean_hosts(ga4.report(*iso(previous)), settings=settings)
+    ga_now, quality_now = clean_hosts(ga4.report(*iso(current)), production_hosts, settings=settings)
+    ga_old, quality_old = clean_hosts(ga4.report(*iso(previous)), production_hosts, settings=settings)
 
     findings = detect_anomalies({"gsc": gsc_now, "ga4": ga_now, "baseline": baseline, "data_quality": quality_now},
                                 {"gsc": gsc_old, "ga4": ga_old}, rules, settings)

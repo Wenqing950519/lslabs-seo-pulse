@@ -14,5 +14,5 @@ def clean_hosts(rows, production_hosts_override=None, settings=None):
                   "pollution_warning": ratio > .20}
 
 
-def exclude_hosts(rows):
-    return clean_hosts(rows)[0]
+def exclude_hosts(rows, production_hosts_override=None, settings=None):
+    return clean_hosts(rows, production_hosts_override, settings)[0]

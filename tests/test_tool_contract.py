@@ -50,17 +50,26 @@ def test_live_contract_matches_committed():
 
 def test_stored_hashes_are_self_consistent():
     contract = _committed()
+    assert contract["contract_format"] == 2
     for tool in contract["tools"]:
         digests = tool["sha256"]
         assert digests["description"] == gen.sha(tool["description"]), tool["name"]
         assert digests["input_schema"] == gen.sha(tool["input_schema"]), tool["name"]
+        assert digests["annotations"] == gen.sha(tool["annotations"]), tool["name"]
         assert digests["tool"] == gen.sha(
             {
                 "name": tool["name"],
                 "description": tool["description"],
                 "input_schema": tool["input_schema"],
+                "title": tool["title"],
+                "annotations": tool["annotations"],
             }
         ), tool["name"]
+        expected_hints = {"readOnlyHint": True, "destructiveHint": False,
+                          "idempotentHint": True, "openWorldHint": False}
+        for hint, value in expected_hints.items():
+            assert tool["annotations"][hint] is value, tool["name"]
+        assert tool["title"]
     assert contract["fingerprint"] == gen.sha([t["sha256"]["tool"] for t in contract["tools"]])
     names = [t["name"] for t in contract["tools"]]
     assert names == sorted(names)
@@ -101,3 +110,14 @@ def test_diff_contracts_reports_changed_description():
     lines = gen.diff_contracts(committed, altered)
     assert any(name in line and "description" in line for line in lines)
     assert gen.diff_contracts(committed, committed) == []
+
+
+def test_diff_contracts_reports_changed_annotation():
+    """A8: tampering with a single annotation must be detected, not silently accepted."""
+    committed = _committed()
+    altered = copy.deepcopy(committed)
+    altered["tools"][0]["annotations"]["readOnlyHint"] = False
+    name = altered["tools"][0]["name"]
+    lines = gen.diff_contracts(committed, altered)
+    assert any(name in line and "annotation" in line.lower() for line in lines)
+    assert gen.sha(altered["tools"][0]["annotations"]) != committed["tools"][0]["sha256"]["annotations"]
