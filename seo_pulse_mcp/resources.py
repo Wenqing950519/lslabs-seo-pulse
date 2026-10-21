@@ -7,6 +7,7 @@ is not given but site_url is, the production host(s) are derived from site_url
 (see derive_production_hosts). site_url/property_id themselves fall back straight
 to the environment inside GoogleGSCConnector/GoogleGA4Connector, unchanged from 0.1.0.
 """
+from dataclasses import replace
 from urllib.parse import urlparse
 
 from .settings import _host_list
@@ -75,3 +76,25 @@ def resolve_production_hosts(production_hosts, site_url, settings):
     if derived is not None:
         return derived
     return settings.production_hosts
+
+
+def resolve_report_settings(settings, site_url=None, production_hosts=None):
+    """Keep request-specific hosts and canonical origin together without mutating defaults.
+
+    A domain property does not specify a canonical scheme/subdomain: retain an
+    existing canonical origin inside that domain, otherwise default to HTTPS.
+    URL-prefix properties supply their own origin (not their path).
+    """
+    hosts = resolve_production_hosts(production_hosts, site_url, settings)
+    origin = settings.canonical_origin
+    if site_url:
+        if site_url.startswith("sc-domain:"):
+            domain = site_url[len("sc-domain:"):].strip().lower().rstrip('.')
+            current_host = (urlparse(origin).hostname or '').lower().rstrip('.')
+            if domain and not (current_host == domain or current_host.endswith('.' + domain)):
+                origin = f"https://{domain}"
+        else:
+            parsed = urlparse(site_url)
+            if parsed.hostname:
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+    return replace(settings, production_hosts=hosts, canonical_origin=origin)

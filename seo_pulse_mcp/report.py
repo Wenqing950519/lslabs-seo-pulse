@@ -2,6 +2,7 @@
 
 Raw GSC/GA4 rows never leave the server; the AI receives totals, movers and ranked findings.
 """
+from dataclasses import replace
 from datetime import date, timedelta
 
 from .anomalies import aggregate, detect_anomalies
@@ -47,6 +48,10 @@ def _movers(rows, old_rows, dimension, origin):
 
 def build_weekly_report(gsc, ga4, settings, end_date=None, top_n=20, now=None, rules=None,
                         production_hosts=None):
+    # Anomaly detection also filters GA4 rows. Use the same request-local settings
+    # for both passes, including callers that invoke the report builder directly.
+    if production_hosts is not None:
+        settings = replace(settings, production_hosts=tuple(production_hosts))
     end = date.fromisoformat(end_date) if end_date else settings.default_end_date(now)
     if top_n < 1:
         raise ValueError("top_n must be >= 1")
@@ -65,7 +70,7 @@ def build_weekly_report(gsc, ga4, settings, end_date=None, top_n=20, now=None, r
         baseline = {"gsc": [{**r, "clicks": r["clicks"] / BASELINE_WEEKS,
                              "impressions": r["impressions"] / BASELINE_WEEKS} for r in baseline_rows]}
 
-    # Clean GA4 once so data quality is measured on the raw rows.
+    # Measure data quality on raw rows before anomaly detection rechecks hosts.
     ga_now, quality_now = clean_hosts(ga4.report(*iso(current)), production_hosts, settings=settings)
     ga_old, quality_old = clean_hosts(ga4.report(*iso(previous)), production_hosts, settings=settings)
 

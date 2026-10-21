@@ -142,7 +142,10 @@ export SEO_PULSE_HTTP_PORT=8000
 
 `production_hosts` 的推導規則：沒有直接傳 `production_hosts`、但傳了 `site_url` 時，會從 `site_url` 的網域推導出正式網域清單，並**同時納入裸網域與 `www.` 子網域**兩者（例如 `sc-domain:example.com` 推導出 `example.com` 與 `www.example.com`），因為同一個網域屬性常同時涵蓋這兩種主機，只納入其中一個會讓另一邊的 GA4 流量被誤判為污染而排除。`site_url` 本身若沒傳或推導不出網域，才退回環境變數的設定。
 
+週報會為每次呼叫建立獨立設定，讓 GA4 清理與異常判定使用相同的正式網域清單，不會改動後續呼叫的預設值。傳入 `site_url` 時，週報網站名稱與 A9 正式網址判定也跟著切換：URL-prefix 使用該網址的 scheme 與 host（含 port，不含 path）；網域屬性若涵蓋目前設定的正式網址，就保留該網址，否則以 `https://網域` 為預設。網域屬性本身無法證明實際 canonical，使用不同正式子網域或 HTTP 的網站可傳入對應的 URL-prefix 屬性。
+
 設定集中於 `seo_pulse_mcp/settings.py`，全部由環境變數讀取：
+
 
 | 變數 | 預設 | 用途 |
 |---|---|---|

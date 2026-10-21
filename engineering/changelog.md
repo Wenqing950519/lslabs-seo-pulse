@@ -144,3 +144,9 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - 追加修正（10/21 08:08 後）重跑：`claude plugin validate --strict .` ✔ Validation passed；`generate_tool_contract.py --check` OK；`smoke_stdio_client.py` 兩個 manifest 都列出 7 個工具、exit 0。
 - 實測只設 `SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE=1`、`--host 0.0.0.0`、不加旗標：拒絕啟動（exit 1），確認環境變數無法解除限制。
 - HTTP 實測 `initialize` 的 `serverInfo` 為 `{name: seo-pulse, version: 0.2.0}`；新測試 `tests/test_server.py::test_initialize_reports_package_version_as_server_info`、`tests/test_http_transport.py::test_env_var_alone_does_not_allow_remote` 通過。
+# 2026-10-21 PR #2 review fixes
+
+- 修正跨網站週報：每次呼叫建立獨立設定，GA4 清理與異常偵測使用相同正式網域，避免 A10／A11 等規則漏報；保留原始資料污染比例。
+- `site_url` 同步決定週報網站與 A9 canonical 判定。URL-prefix 保留 scheme／host／port；網域屬性保留其範圍內既有 canonical，跨網域時預設 HTTPS。後續未帶參數的呼叫仍使用原環境設定。
+- 統一工具註冊時的 docstring 縮排，修正 Python 3.12 與 3.13+ 編譯差異造成的合約指紋不一致；既有 0.2.0 工具合約內容不變。
+- 驗證：鎖定依賴、Python 3.12；pytest 161 passed（新增 9 案例）；tool-contract `--check` 通過；兩份 plugin manifest 的 stdio smoke 與 HTTP fixture smoke 通過。不使用真實 Google 資料。

@@ -1,3 +1,4 @@
+import inspect
 import os
 import sys
 from datetime import date, timedelta
@@ -38,7 +39,7 @@ from .anomalies import detect_anomalies as calculate_anomalies
 from .branding import DISPLAY_NAME, PACKAGE_VERSION
 from .render import render_markdown
 from .report import build_weekly_report
-from .resources import validate_site_url, validate_property_id, resolve_production_hosts
+from .resources import validate_site_url, validate_property_id, resolve_production_hosts, resolve_report_settings
 from .settings import load_settings
 
 INSTRUCTIONS = """使用繁體中文回覆。開始前先 list_sites 驗證看得到哪些網站，再呼叫不帶參數的 weekly_report 看 periods 的本週、上週與 baseline 日期範圍，確認資料來源與期間正確後才繼續查詢。
@@ -63,13 +64,29 @@ mcp = FastMCP("seo-pulse", instructions=INSTRUCTIONS, stateless_http=True)
 mcp._mcp_server.version = PACKAGE_VERSION
 
 
-@mcp.tool(title="列出網站", annotations=_annotations("列出網站"))
+def _tool(title):
+    """Register stable descriptions on Python versions before/after 3.13.
+
+    Python 3.13 strips docstring indentation at compile time; older versions
+    leave it intact. Normalize before the SDK exposes/hashes the description,
+    preserving the published contract's trailing newline for multiline text.
+    """
+    def register(function):
+        description = inspect.cleandoc(function.__doc__ or "")
+        if "\n" in description:
+            description += "\n"
+        return mcp.tool(title=title, annotations=_annotations(title),
+                        description=description)(function)
+    return register
+
+
+@_tool("列出網站")
 def list_sites() -> list[dict]:
     """List available GSC sites (fake fixture sites by default)."""
     return get_connectors()[0].list_sites()
 
 
-@mcp.tool(title="查詢 GSC 數據", annotations=_annotations("查詢 GSC 數據"))
+@_tool("查詢 GSC 數據")
 def gsc_query(start_date: str, end_date: str, dimensions: list[str],
               filters: dict | None = None, site_url: str | None = None) -> list[dict]:
     """Inclusive ISO dates; exact-match dimension filters.
@@ -84,7 +101,7 @@ def gsc_query(start_date: str, end_date: str, dimensions: list[str],
     return gsc.query(start_date, end_date, dimensions, filters)
 
 
-@mcp.tool(title="查詢 GA4 報表", annotations=_annotations("查詢 GA4 報表"))
+@_tool("查詢 GA4 報表")
 def ga4_report(start_date: str, end_date: str, property_id: str | None = None,
                production_hosts: list[str] | str | None = None) -> list[dict]:
     """Return GA4 rows after excluding local and configured test hosts.
@@ -106,7 +123,7 @@ def week_ranges(end_date):
             (end - timedelta(days=13)).isoformat(), (end - timedelta(days=7)).isoformat())
 
 
-@mcp.tool(title="比較 GSC 週對週", annotations=_annotations("比較 GSC 週對週"))
+@_tool("比較 GSC 週對週")
 def gsc_compare_weeks(end_date: str, dimensions: list[str] | None = None,
                       filters: dict | None = None, site_url: str | None = None) -> dict:
     """Compare seven days ending on end_date with preceding seven days.
@@ -120,7 +137,7 @@ def gsc_compare_weeks(end_date: str, dimensions: list[str] | None = None,
             "previous": gsc_query(prior_start, prior_end, dims, filters, site_url=site_url)}
 
 
-@mcp.tool(title="比較 GA4 週對週", annotations=_annotations("比較 GA4 週對週"))
+@_tool("比較 GA4 週對週")
 def ga4_compare_weeks(end_date: str, property_id: str | None = None,
                       production_hosts: list[str] | str | None = None) -> dict:
     """Compare filtered GA4 rows for adjacent inclusive seven-day windows.
@@ -138,13 +155,13 @@ def ga4_compare_weeks(end_date: str, property_id: str | None = None,
             "data_quality": {"current": current_quality, "previous": previous_quality}}
 
 
-@mcp.tool(title="偵測異常", annotations=_annotations("偵測異常"))
+@_tool("偵測異常")
 def detect_anomalies(current: dict, previous: dict, rules: dict | None = None) -> list[dict]:
     """Apply analyst A1–A14 rules; current.baseline is the prior four-week average."""
     return calculate_anomalies(current, previous, rules)
 
 
-@mcp.tool(title="產生週報", annotations=_annotations("產生週報"))
+@_tool("產生週報")
 def weekly_report(end_date: str | None = None, top_n: int = 20,
                   format: Literal["json", "markdown"] = "json",
                   site_url: str | None = None, property_id: str | None = None,
@@ -168,7 +185,8 @@ def weekly_report(end_date: str | None = None, top_n: int = 20,
     site_url = validate_site_url(site_url)
     property_id = validate_property_id(property_id)
     settings = load_settings()
-    hosts = resolve_production_hosts(production_hosts, site_url, settings)
+    settings = resolve_report_settings(settings, site_url, production_hosts)
+    hosts = settings.production_hosts
     if format not in ("json", "markdown"):
         raise ValueError("format must be json or markdown")
     gsc, ga4 = get_connectors(settings, site_url=site_url, property_id=property_id, production_hosts=hosts)
