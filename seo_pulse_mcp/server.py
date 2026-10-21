@@ -16,10 +16,15 @@ except ImportError:
         def __init__(self, **kwargs):
             pass
 
+    class _StubMCPServer:
+        def __init__(self):
+            self.version = None
+
     class FastMCP:
         def __init__(self, name, instructions=None, **kwargs):
             self.name = name
             self.instructions = instructions
+            self._mcp_server = _StubMCPServer()
 
         def tool(self, *args, **kwargs):
             return lambda function: function
@@ -30,7 +35,7 @@ from .connectors import get_connectors
 from .hosts import exclude_hosts, clean_hosts
 from .anomalies import detect_anomalies as calculate_anomalies
 
-from .branding import DISPLAY_NAME
+from .branding import DISPLAY_NAME, PACKAGE_VERSION
 from .render import render_markdown
 from .report import build_weekly_report
 from .resources import validate_site_url, validate_property_id, resolve_production_hosts
@@ -53,6 +58,9 @@ def _annotations(title):
 
 
 mcp = FastMCP("seo-pulse", instructions=INSTRUCTIONS, stateless_http=True)
+# FastMCP's constructor has no `version` kwarg in mcp==1.30.0; the low-level
+# Server it wraps does, and initialize's serverInfo.version reads from there.
+mcp._mcp_server.version = PACKAGE_VERSION
 
 
 @mcp.tool(title="列出網站", annotations=_annotations("列出網站"))
@@ -171,10 +179,6 @@ def weekly_report(end_date: str | None = None, top_n: int = 20,
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
-def _env_flag(value):
-    return str(value).strip().lower() not in ("", "0", "false", "no")
-
-
 def resolve_runtime_config(args, env=None):
     """CLI 參數優先於環境變數；都沒有時維持 0.1.0 的 stdio 預設行為。"""
     env = os.environ if env is None else env
@@ -187,8 +191,7 @@ def resolve_runtime_config(args, env=None):
     else:
         port_env = env.get("SEO_PULSE_HTTP_PORT")
         port = int(port_env) if port_env else 8000
-    allow_remote = bool(args.allow_unauthenticated_remote) or \
-        _env_flag(env.get("SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE", ""))
+    allow_remote = bool(args.allow_unauthenticated_remote)
     return transport, host, port, allow_remote
 
 

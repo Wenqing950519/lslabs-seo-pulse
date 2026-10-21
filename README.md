@@ -120,7 +120,7 @@ export SEO_PULSE_HTTP_PORT=8000
 
 伺服器會在 `http://127.0.0.1:8000/mcp` 提供 streamable HTTP 端點（`stateless_http=True`，每個請求各自處理，不保留跨請求的 session 狀態，方便之後水平擴充）。預設只會綁定本機（`127.0.0.1`／`localhost`／`::1`），並保留 SDK 內建的 DNS rebinding 保護。
 
-若要綁定非本機位址（例如 `0.0.0.0`，讓同一網段的其他機器也能連上），必須額外加上 `--allow-unauthenticated-remote` 旗標（或設定對應環境變數 `SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE=1`），伺服器會在 stderr 印出警告；沒加旗標會直接拒絕啟動。這個旗標不會加上任何認證，只是提醒你知道自己在做什麼。
+若要綁定非本機位址（例如 `0.0.0.0`，讓同一網段的其他機器也能連上），必須額外加上 `--allow-unauthenticated-remote` 旗標，伺服器會在 stderr 印出警告；沒加旗標會直接拒絕啟動。這個旗標不會加上任何認證，只是提醒你知道自己在做什麼。綁定非本機位址時，SDK 預設的 DNS rebinding 保護不會啟用，第二階段對外部署前需要設定 `allowed_hosts`。
 
 ## 工具
 

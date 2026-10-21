@@ -97,6 +97,17 @@ def test_cli_allows_0_0_0_0_with_flag_end_to_end(monkeypatch, capsys):
     assert "警告" in capsys.readouterr().err
 
 
+def test_env_var_alone_does_not_allow_remote(monkeypatch, capsys):
+    """SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE=1 alone (no CLI flag) must NOT bypass
+    the non-loopback safety gate; only --allow-unauthenticated-remote may."""
+    monkeypatch.setattr(server.mcp, "run", lambda **kw: pytest.fail("must not start the server"))
+    monkeypatch.setenv("SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE", "1")
+    with pytest.raises(SystemExit) as excinfo:
+        server.main(["serve", "--transport", "http", "--host", "0.0.0.0"])
+    assert excinfo.value.code != 0
+    assert "--allow-unauthenticated-remote" in capsys.readouterr().err
+
+
 # --- A7: server instructions ------------------------------------------------------
 
 def test_instructions_first_512_chars_contain_required_phrases():

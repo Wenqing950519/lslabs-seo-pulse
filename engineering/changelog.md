@@ -89,11 +89,12 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 
 ## 改了什麼
 
-- **streamable HTTP 傳輸模式**（`seo_pulse_mcp/server.py`）：新增 `seo-pulse serve --transport http [--host] [--port] [--allow-unauthenticated-remote]`，`python -m seo_pulse_mcp.server --transport http` 同樣可用；環境變數 `SEO_PULSE_TRANSPORT`、`SEO_PULSE_HTTP_HOST`、`SEO_PULSE_HTTP_PORT`（另提供非必要的 `SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE`）。CLI 參數優先於環境變數；不帶任何參數時仍是 stdio，`.mcp.json`／`.codex-mcp.json`／`seo-pulse auth` 完全不動。端點固定在 `/mcp`，`stateless_http=True`。
+- **streamable HTTP 傳輸模式**（`seo_pulse_mcp/server.py`）：新增 `seo-pulse serve --transport http [--host] [--port] [--allow-unauthenticated-remote]`，`python -m seo_pulse_mcp.server --transport http` 同樣可用；環境變數 `SEO_PULSE_TRANSPORT`、`SEO_PULSE_HTTP_HOST`、`SEO_PULSE_HTTP_PORT`。CLI 參數優先於環境變數；不帶任何參數時仍是 stdio，`.mcp.json`／`.codex-mcp.json`／`seo-pulse auth` 完全不動。端點固定在 `/mcp`，`stateless_http=True`。
 - **非本機綁定的安全底線**：預設只綁 `127.0.0.1`／`localhost`／`::1`；綁其他位址（例如 `0.0.0.0`）沒加 `--allow-unauthenticated-remote` 會直接拒絕啟動（非零結束、繁中錯誤），加了會在 stderr 印警告。DNS rebinding 保護沿用 SDK 對 loopback host 的預設行為（見下「設計理由」），沒有主動關閉。
 - **工具 annotations**（`server.py`）：7 個工具全部加 `ToolAnnotations(title=..., readOnlyHint=True, destructiveHint=False, idempotentHint=True, openWorldHint=False)`；`scripts/generate_tool_contract.py` 把 `title`／`annotations` 納入 contract 與每個工具、整體指紋的 SHA-256，`contract_format` 升為 2，`diff_contracts` 也比對這兩個欄位。
-- **網站與 GA4 資源改成工具參數**（`server.py`、新檔 `seo_pulse_mcp/resources.py`、`connectors/__init__.py`、`hosts.py`、`report.py`）：`gsc_query`／`gsc_compare_weeks`／`weekly_report` 加選填 `site_url`；`ga4_report`／`ga4_compare_weeks`／`weekly_report` 加選填 `property_id`；三個 GA4 工具都加選填 `production_hosts`（`list[str]` 或逗號字串）。優先順序一律「工具參數 > 環境變數」；`production_hosts` 沒給時，若有 `site_url` 會從其網域推導（見下「production_hosts 推導規則」），推導不出來才退回環境變數。格式錯誤（`property_id` 非純數字、`site_url` 非 `sc-domain:`／`http(s)://` 開頭）回傳清楚的繁中錯誤。`get_connectors()` 的 `uses_default_hosts` 擋 Google 模式沿用 `example.com` 的檢查，改成有參數時用參數判斷；`gsc_query`／`gsc_compare_weeks` 補上這段判斷邏輯（帶 `site_url` 時用 `resolve_production_hosts(None, site_url, settings)` 的結果判斷，不帶時維持 0.1.0 行為），避免 Google 模式下只傳 `site_url`、沒設 `SEO_PULSE_PRODUCTION_HOSTS` 時被誤擋；`ga4_report`／`ga4_compare_weeks` 本來就沒有 `site_url`，維持原狀。工具 schema 與描述都沒有變動，不需要重新產生 `tool-contract.json`。沒做選做的 `list_ga4_properties`。
+- **網站與 GA4 資源改成工具參數**（`server.py`、新檔 `seo_pulse_mcp/resources.py`、`connectors/__init__.py`、`hosts.py`、`report.py`）：`gsc_query`／`gsc_compare_weeks`／`weekly_report` 加選填 `site_url`；`ga4_report`／`ga4_compare_weeks`／`weekly_report` 加選填 `property_id`；三個 GA4 工具都加選填 `production_hosts`（`list[str]` 或逗號字串）。優先順序一律「工具參數 > 環境變數」；`production_hosts` 沒給時，若有 `site_url` 會從其網域推導（見下「production_hosts 推導規則」），推導不出來才退回環境變數。格式錯誤（`property_id` 非純數字、`site_url` 非 `sc-domain:`／`http(s)://` 開頭）回傳清楚的繁中錯誤。`get_connectors()` 的 `uses_default_hosts` 擋 Google 模式沿用 `example.com` 的檢查，改成有參數時用參數判斷；`gsc_query`／`gsc_compare_weeks` 補上這段判斷邏輯（帶 `site_url` 時用 `resolve_production_hosts(None, site_url, settings)` 的結果判斷，不帶時維持 0.1.0 行為），避免 Google 模式下只傳 `site_url`、沒設 `SEO_PULSE_PRODUCTION_HOSTS` 時被誤擋；`ga4_report`／`ga4_compare_weeks` 本來就沒有 `site_url`，維持原狀。這段 `gsc_query`／`gsc_compare_weeks` 的判斷修正本身沒有改到工具 schema；但本階段整體有新增 annotations、新增選填參數並調整描述，`contract_format` 已升為 2，`tool-contract.json` 已重新產生（版本 0.2.0），`--check` 通過。沒做選做的 `list_ga4_properties`。
 - **版本 0.2.0**：`pyproject.toml`、三份 `plugin.json`、`tool-contract.json` 一致（`marketplace.json` 沒有版本欄位，不用改）；`uv.lock` 重新 lock 只更新本專案版本號，沒有新增套件。
+- **serverInfo.version**：`initialize` 回傳的 `serverInfo.version` 改為套件版本 0.2.0（`branding.py` 的 `PACKAGE_VERSION`，先讀 `importlib.metadata`，退回 `pyproject.toml`，再退回固定字串；在 `FastMCP` 建立後設定 `mcp._mcp_server.version`），不再回傳 mcp SDK 版本 1.30.0。`serverInfo` 不在 tool-contract 範圍內，所以 contract 不用重新產生。
 - **Server instructions**：`FastMCP("seo-pulse", instructions=...)` 加入 638 字的繁中說明，前 512 字內逐字包含「先 list_sites 驗證」與「用 weekly_report(format="markdown")、只換兩段佔位、數字不改」；涵蓋 `site_url`／`property_id` 用法、`fixture: true` 要明說是假資料、不引用外部研究。`skills/seo-pulse/SKILL.md` 第一段唯讀驗證補上新參數用法，與 instructions 不矛盾；兩份 Skill 檔都保留。
 - **CredentialProvider 抽象層**（新檔 `seo_pulse_mcp/connectors/credentials.py`）：把 `connectors/google.py` 原本的 `_credentials()` 邏輯、`_save_token()`、scopes、`authenticate()` 整段搬進去，行為、錯誤訊息、檔案權限（0o700、原子寫入、scope 完全相符才沿用）完全不變；`google.py` 從這個新模組 re-export，維持舊有 import 路徑可用。`GoogleGSCConnector`／`GoogleGA4Connector` 新增建構參數 `credential_provider`（預設 `LocalFileCredentialProvider`），`.get(service, context)` 的 `context` 預留每次請求的使用者身分，本階段一律 `None`。第二階段 `RemoteUserCredentialProvider` 的規劃寫在 `docs/credential-provider.md`，只有說明、沒有實作。
 - **文件**：README 新增「兩種執行模式」章節（stdio 現行做法；本機 HTTP 僅供本機測試、無認證、不可對外開放的警告）與「指定網站與 GA4 資源」參數優先順序表；原本「token 存在你的電腦，不經過我們的伺服器」沒有改動，也沒有加回「可用於 ChatGPT 網頁版」的說法。
@@ -101,7 +102,7 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
   - `scripts/smoke_stdio_client.py`：用 `mcp.client.stdio.stdio_client` 依照 `.mcp.json` 與 `.codex-mcp.json` 原本寫的 command/args 原樣啟動兩個 stdio 伺服器（`${CLAUDE_PLUGIN_ROOT}` 換成 repo 絕對路徑、cwd 固定為 repo 根目錄、`SEO_PULSE_CONNECTOR=fixture`），分別印出 `list_tools` 的工具名稱與數量、`weekly_report(format="markdown")` 的前 15 行。
   - `scripts/smoke_http_client.py`：用 `mcp.client.streamable_http.streamablehttp_client` 連到已經在跑的 `/mcp` 端點（`--url` 可覆寫，預設 `http://127.0.0.1:8000/mcp`），印出 `initialize` 的 `serverInfo`、instructions 前 512 字元、`list_tools` 每個工具的 name／title／annotations（JSON），再呼叫 `weekly_report(site_url="sc-domain:example.com", property_id="123456789", format="markdown")` 印前 15 行、`gsc_query(..., site_url="sc-domain:example.com")` 印筆數與第一筆。
   - 兩支都用 `result.structuredContent["result"]` 取回傳值（而不是解析 `content[0].text`）：實測發現 FastMCP 對 list 回傳值會依每個元素各自產生一個 `TextContent` block，單一文字塊不等於完整結果，`structuredContent` 才是結構化、好解析的來源。
-  - 已在本機實際跑過：兩個 manifest 的 stdio 都成功列出 7 個工具並印出週報前 15 行；HTTP 模式實際啟動 `seo-pulse serve --transport http --port 18766` 後，`smoke_http_client.py` 成功印出 `serverInfo`（`mcp` SDK 版本 1.30.0）、instructions 前 512 字、7 個工具的 annotations（皆為 `readOnlyHint: true`／`destructiveHint: false`／`openWorldHint: false`，title 皆有值）、`weekly_report`／`gsc_query` 帶 `site_url`／`property_id` 皆成功回傳。
+  - 已在本機實際跑過：兩個 manifest 的 stdio 都成功列出 7 個工具並印出週報前 15 行；HTTP 模式實際啟動 `seo-pulse serve --transport http --port 18766` 後，`smoke_http_client.py` 成功印出 `serverInfo`（第一輪實測時 `serverInfo.version` 是 mcp SDK 版本 1.30.0，追加修正後實測為 0.2.0）、instructions 前 512 字、7 個工具的 annotations（皆為 `readOnlyHint: true`／`destructiveHint: false`／`openWorldHint: false`，title 皆有值）、`weekly_report`／`gsc_query` 帶 `site_url`／`property_id` 皆成功回傳。
 
 ## 為什麼
 
@@ -122,6 +123,8 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - 選做的 `list_ga4_properties` 工具。
 - Dockerfile、任何部署設定、公開 HTTPS 主機、Secure MCP Tunnel。
 - 隱私權政策、服務條款、OpenAI 目錄上架。
+- `allowed_hosts`／DNS rebinding 設定：綁非本機位址時 SDK 預設不啟用保護，對外部署前要設定 `TransportSecuritySettings` 的 `allowed_hosts`／`allowed_origins`。
+- fixture 模式會忽略 `site_url`／`property_id` 參數（一律回傳同一份假資料），本階段不修，第二階段再處理。
 
 ## 新依賴
 
@@ -129,12 +132,15 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 
 ## 驗證結果
 
-- `uv run --extra test --extra google pytest -q`：150 passed（原本 121 + 29 個新測試），0 failed、0 skipped。
+- `uv run --extra test --extra google pytest`：152 passed（原本 121 + 31 個新測試），0 failed、0 skipped。
 - `uv run --extra test --extra google python scripts/generate_tool_contract.py --check`：`OK: 本機伺服器與 tool-contract.json 一致`。
 - 版本一致性：`pyproject.toml`、三份 `plugin.json`、`tool-contract.json` 皆為 `0.2.0`。
 - `uv run --extra google python scripts/smoke_stdio_client.py`：`.mcp.json`、`.codex-mcp.json` 兩個 manifest 都成功列出 7 個工具，fixture 模式 `weekly_report(format="markdown")` 正常回傳。
-- 實際啟動 `uv run --extra google python -m seo_pulse_mcp.server --transport http --port 18766` 後執行 `scripts/smoke_http_client.py --url http://127.0.0.1:18766/mcp`：`serverInfo` 正常（`mcp` 1.30.0）、instructions 前 512 字含規格要求的兩句、7 個工具的 `title`／`annotations` 都正確（`readOnlyHint: true`、`destructiveHint: false`、`openWorldHint: false`）、`weekly_report`／`gsc_query` 帶 `site_url`／`property_id` 都成功回傳。
+- 實際啟動 `uv run --extra google python -m seo_pulse_mcp.server --transport http --port 18766` 後執行 `scripts/smoke_http_client.py --url http://127.0.0.1:18766/mcp`：`serverInfo` 正常（第一輪實測時 `serverInfo.version` 是 mcp SDK 版本 1.30.0，追加修正後實測為 0.2.0）、instructions 前 512 字含規格要求的兩句、7 個工具的 `title`／`annotations` 都正確（`readOnlyHint: true`、`destructiveHint: false`、`openWorldHint: false`）、`weekly_report`／`gsc_query` 帶 `site_url`／`property_id` 都成功回傳。
 - 兩種啟動方式實測：`seo-pulse serve --transport http --port 18801` 與 `SEO_PULSE_TRANSPORT=http SEO_PULSE_HTTP_PORT=18802 python -m seo_pulse_mcp.server` 都只監聽 `127.0.0.1`（`ss -ltn` 確認），`scripts/smoke_http_client.py` 對兩者都回傳 0。
 - DNS rebinding 保護實測：帶 `Host: evil.example` 的請求回 HTTP 421（`Invalid Host header`）。
 - 安全底線實測：`--host 0.0.0.0` 不加旗標時拒絕啟動（exit 1、繁中錯誤）；加 `--allow-unauthenticated-remote` 時 stderr 印警告後正常啟動。
 - `claude plugin validate --strict .` 通過。本階段沒有用 `claude plugin install` 實際掛載（避免動到本機 Claude Code 設定），A1 以 `tests/test_plugin_launch.py` 與 `scripts/smoke_stdio_client.py` 驗證。
+- 追加修正（10/21 08:08 後）重跑：`claude plugin validate --strict .` ✔ Validation passed；`generate_tool_contract.py --check` OK；`smoke_stdio_client.py` 兩個 manifest 都列出 7 個工具、exit 0。
+- 實測只設 `SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE=1`、`--host 0.0.0.0`、不加旗標：拒絕啟動（exit 1），確認環境變數無法解除限制。
+- HTTP 實測 `initialize` 的 `serverInfo` 為 `{name: seo-pulse, version: 0.2.0}`；新測試 `tests/test_server.py::test_initialize_reports_package_version_as_server_info`、`tests/test_http_transport.py::test_env_var_alone_does_not_allow_remote` 通過。
