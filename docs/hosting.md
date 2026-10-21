@@ -129,9 +129,9 @@ gcloud run deploy seo-pulse --source . --region asia-east1 --project ga4-mcp-506
 
 | 要求（OpenAI 文件） | 狀態 |
 |---|---|
-| 公開 HTTPS MCP 端點、DCR、PKCE S256、protected resource metadata、`resource` 綁定 | 程式已完成；尚未部署 |
+| 公開 HTTPS MCP 端點、DCR、PKCE S256、protected resource metadata、`resource` 綁定 | 已部署：`https://pulse.lslabs.tw/mcp`（Cloud Run，2026-10-21） |
 | 工具 annotations（readOnly／非破壞／closed-world） | 已完成，納入 tool-contract |
-| website／support／privacy／terms 四個 HTTPS 網址 | 主站 `/seo-pulse/`、`#support`、`/privacy/`、`/terms/`；尚未發布 |
+| website／support／privacy／terms 四個 HTTPS 網址 | 主站 `/seo-pulse/`、`#support`、`/privacy/`、`/terms/`；2026-10-21 已上線 |
 | 網域驗證純文字檔 | 用 `SEO_PULSE_VERIFICATION_FILES` 提供 |
 | 插件 ZIP（manifest、mcp.json、Skill、圖示，不含 secret） | `scripts/build_openai_plugin.py` |
 | 開發者身分驗證、5 個正向與 3 個負向測試案例、影片、免 MFA 的審核帳號 | 需要人工準備：審核帳號是一個已連結示範 GSC／GA4 資源的 Google 帳號，並加入邀請名單 |
