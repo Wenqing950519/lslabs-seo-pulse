@@ -158,7 +158,8 @@ def build_app(config, http_transport=None):
                             for r in app.router.routes]
     app.router.routes.extend([
         Route("/", landing, methods=["GET"]),
-        Route("/healthz", health, methods=["GET"]),
+        # Cloud Run reserves paths ending in "z" (its front end answers /healthz itself).
+        Route("/health", health, methods=["GET"]),
         Route(CALLBACK_PATH, provider.google_callback, methods=["GET"]),
         # Root alias of the RFC 9728 document the SDK serves at /.well-known/oauth-protected-resource/mcp.
         Route("/.well-known/oauth-protected-resource",
