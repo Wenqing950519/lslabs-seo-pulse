@@ -93,11 +93,54 @@ claude mcp add seo-pulse -e SEO_PULSE_CONNECTOR=fixture -- /path/to/seo-pulse/.v
 
 Windows 把最後的路徑換成 `C:\path\to\seo-pulse\.venv\Scripts\python.exe`。週報流程見 `skill/SKILL.md`，可放進 Claude 的 Skills 使用。
 
+## 兩種執行模式
+
+### 模式一：stdio（plugin，現行做法）
+
+上面「安裝」與「掛載到 Claude」描述的就是這個模式：Claude Code／Codex／Cursor 以 `uv run ... python -m seo_pulse_mcp.server` 啟動一個子行程，透過 stdin/stdout 跟伺服器溝通。不帶任何參數就是這個模式，行為與 0.1.0 完全相同。
+
+### 模式二：本機 HTTP（`/mcp`，僅供本機測試）
+
+> ⚠️ **這個模式目前沒有任何認證**。任何能連到這個位址與埠號的人都能呼叫全部工具、讀到你設定的 GSC／GA4 資料。只能在你自己的電腦上做短暫測試，**不可對外開放、不可長期執行、不可綁定公開可連到的位址**。本階段也沒有 HTTPS，不能用於 ChatGPT 網頁版或任何正式環境。
+
+啟動方式（兩種都支援，啟動參數優先於環境變數）：
+
+```bash
+# 啟動參數
+.venv/bin/seo-pulse serve --transport http --host 127.0.0.1 --port 8000
+# 或
+.venv/bin/python -m seo_pulse_mcp.server --transport http --host 127.0.0.1 --port 8000
+
+# 環境變數
+export SEO_PULSE_TRANSPORT=http
+export SEO_PULSE_HTTP_HOST=127.0.0.1
+export SEO_PULSE_HTTP_PORT=8000
+.venv/bin/seo-pulse
+```
+
+伺服器會在 `http://127.0.0.1:8000/mcp` 提供 streamable HTTP 端點（`stateless_http=True`，每個請求各自處理，不保留跨請求的 session 狀態，方便之後水平擴充）。預設只會綁定本機（`127.0.0.1`／`localhost`／`::1`），並保留 SDK 內建的 DNS rebinding 保護。
+
+若要綁定非本機位址（例如 `0.0.0.0`，讓同一網段的其他機器也能連上），必須額外加上 `--allow-unauthenticated-remote` 旗標（或設定對應環境變數 `SEO_PULSE_ALLOW_UNAUTHENTICATED_REMOTE=1`），伺服器會在 stderr 印出警告；沒加旗標會直接拒絕啟動。這個旗標不會加上任何認證，只是提醒你知道自己在做什麼。
+
 ## 工具
 
 主要工具：`weekly_report(end_date=None, top_n=20, format="json")`。`format="markdown"` 時回傳排好版的繁中週報：標題、期間、關鍵數字、資料品質、依 P0/P1/P2 分組的異常、熱門頁面與查詢都由程式產生，AI 只替換「本週摘要」與「下週建議」兩段的佔位文字，數字不經 AI 轉抄。JSON 模式由伺服器端一次抓取本週、上週（GSC 含每日 date/query/page）與前四週 baseline，GA4 只清理一次並保留資料品質，套用 A1–A14 後只回傳精簡結果：`periods`、`totals`（GSC／GA4 本週、上週、變化%、baseline 週平均）、`data_quality`、`top_pages`／`top_queries`、依優先序排序的 `findings`（最多 `top_n` 筆，`findings_total` 為總數）、`priority_counts`、`not_evaluated` 與 `warnings`。`end_date` 省略時以 `SEO_PULSE_TIMEZONE` 的今天減 `SEO_PULSE_GSC_LAG_DAYS` 天計算。baseline 為本週之前四週（含上週）的每週平均；有資料的天數不足 28 天、本週資料不足 7 天或 GA4 污染超過 20% 時列入 `warnings`。
 
-追查用工具：`list_sites`、`gsc_query(start_date,end_date,dimensions,filters)`、`gsc_compare_weeks(end_date,dimensions,filters)`、`ga4_report(start_date,end_date)`、`ga4_compare_weeks(end_date)`、`detect_anomalies(current,previous,rules)`。日期為 ISO 格式且包含起訖日；比較工具取結束日起 7 天及前 7 天。GSC 維度支援 date/query/page、filters 為等值字典；排名以曝光加權，CTR 由點擊／曝光重算。這些工具回傳原始 rows，資料量大時請改用 `weekly_report`。
+追查用工具：`list_sites`、`gsc_query(start_date,end_date,dimensions,filters,site_url)`、`gsc_compare_weeks(end_date,dimensions,filters,site_url)`、`ga4_report(start_date,end_date,property_id,production_hosts)`、`ga4_compare_weeks(end_date,property_id,production_hosts)`、`detect_anomalies(current,previous,rules)`。日期為 ISO 格式且包含起訖日；比較工具取結束日起 7 天及前 7 天。GSC 維度支援 date/query/page、filters 為等值字典；排名以曝光加權，CTR 由點擊／曝光重算。這些工具回傳原始 rows，資料量大時請改用 `weekly_report`。
+
+### 指定網站與 GA4 資源（選填參數）
+
+需要用同一個 MCP 伺服器服務多個網站／資源時，可以在呼叫工具時直接傳入，不用改環境變數或重啟伺服器：
+
+| 參數 | 哪些工具 | 格式 | 沒傳時的退回順序 |
+|---|---|---|---|
+| `site_url` | `gsc_query`、`gsc_compare_weeks`、`weekly_report` | `sc-domain:example.com`（網域屬性）或 `https://example.com/`（URL-prefix 屬性） | 環境變數 `SEO_PULSE_GSC_SITE_URL` |
+| `property_id` | `ga4_report`、`ga4_compare_weeks`、`weekly_report` | 純數字字串，例如 `"123456789"`（不是 `G-` 開頭的評估 ID） | 環境變數 `SEO_PULSE_GA4_PROPERTY_ID` |
+| `production_hosts` | `ga4_report`、`ga4_compare_weeks`、`weekly_report` | `list[str]` 或逗號分隔字串，例如 `"example.com,www.example.com"` | 若有傳 `site_url`，從其網域推導（見下）；推導不出來才退回環境變數 `SEO_PULSE_PRODUCTION_HOSTS` |
+
+**優先順序一律是「工具參數 > 環境變數」**；環境變數只當作本機預設值，兩者都設定時以工具參數為準。格式錯誤時會回傳清楚的錯誤訊息（例如 `property_id` 不是純數字、`site_url` 不是 `sc-domain:` 或 `http(s)://` 開頭）。
+
+`production_hosts` 的推導規則：沒有直接傳 `production_hosts`、但傳了 `site_url` 時，會從 `site_url` 的網域推導出正式網域清單，並**同時納入裸網域與 `www.` 子網域**兩者（例如 `sc-domain:example.com` 推導出 `example.com` 與 `www.example.com`），因為同一個網域屬性常同時涵蓋這兩種主機，只納入其中一個會讓另一邊的 GA4 流量被誤判為污染而排除。`site_url` 本身若沒傳或推導不出網域，才退回環境變數的設定。
 
 設定集中於 `seo_pulse_mcp/settings.py`，全部由環境變數讀取：
 
