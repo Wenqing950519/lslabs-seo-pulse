@@ -175,7 +175,7 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
     - 有邀請名單，每次請求都重新檢查。
   - 刷新競態：雲端每位使用者一把鎖，並快取短期權杖；本機 provider 改為程序共用，並在記憶體快取有效憑證。
 - **上架與 Google 要求（審計 §4）**
-  - `hosting.py` 提供 `/.well-known/oauth-protected-resource`（根目錄與 `/mcp` 兩處）與 AS metadata；AS metadata 補上 `none` 認證方式。另有 `/healthz`、`/` 轉產品頁、網域驗證檔。
+  - `hosting.py` 提供 `/.well-known/oauth-protected-resource`（根目錄與 `/mcp` 兩處）與 AS metadata；AS metadata 補上 `none` 認證方式。另有 `/health`、`/` 轉產品頁、網域驗證檔。
   - uvicorn 不送 `server` 標頭；雲端模式關閉 access log，因為查詢字串含 OAuth code。
   - `Dockerfile`；`docs/hosting.md`（環境變數、GCP 設定、Cloud Run 部署、費用上限、上架對照）。
   - `distribution/openai/`（plugin.json、遠端 mcp.json 使用 OAuth DCR）與 `scripts/build_openai_plugin.py`。
@@ -207,3 +207,25 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 ## 驗證結果
 
 見本次結案紀錄；pytest、contract `--check`、stdio smoke、本機 HTTP smoke 與雲端模式本機冒煙測試。
+
+# 2026-10-21 0.3.0 上線後的可觀測性補強
+
+## 改了什麼
+
+- **健康檢查**：`/healthz` 改為 `/health`。Cloud Run 前端會自己回應以 `z` 結尾的路徑，請求到不了程式。
+- **結構化事件**（`seo_pulse_mcp/events.py`）：
+  - 雲端工具呼叫寫 `tool_call` 事件：工具、結果（ok／cached／limited／error）、耗時、當日全站次數、錯誤類別、撞到哪個上限。
+  - Google 登入回呼寫 `sign_in` 事件：signed_in、not_invited、missing_scope 等。
+  - 使用者只以 `sub` 的加鹽雜湊表示，不記參數、email 或憑證；本機版不寫。
+- **上限例外**：`runtime.LimitExceeded` 帶 `limit` 欄位，錯誤訊息不變。
+- **文件**：
+  - `docs/monitoring.md`：組成、健康檢查、上限、用量與費用指標、導流的 GA4／GSC 篩選、事件查詢、警示門檻、監控代理的最小權限、緊急處置。
+  - `docs/hosting.md`：改為三個專案的分工，並記錄實際部署。
+
+## 為什麼
+
+使用者要由另一個代理持續監控狀態、用量與導流成效。上線前 SDK 只記錄「收到請求」，看不出哪個工具、失敗或撞到上限。
+
+## 驗證結果
+
+pytest 全數通過（新增 `tests/test_events.py`）；tool-contract `--check` 通過（工具未變）。

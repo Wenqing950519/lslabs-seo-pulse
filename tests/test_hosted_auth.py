@@ -142,7 +142,7 @@ def test_discovery_metadata(client_for):
 
 def test_plain_routes(client_for):
     client = client_for()
-    assert client.get("/healthz").text == "ok"
+    assert client.get("/health").text == "ok"
     root = client.get("/")
     assert root.status_code == 302 and root.headers["location"].startswith("https://lslabs.tw/seo-pulse/?utm_")
     assert client.get("/.well-known/openai-apps-challenge").text == "challenge-token"

@@ -1,5 +1,7 @@
 # 雲端模式：部署、設定與成本上限
 
+上線後的狀態檢查、用量、費用與警示門檻見 [monitoring.md](monitoring.md)。
+
 雲端模式讓 ChatGPT 等網頁版 AI App 以插件方式使用 SEO Pulse。工具、週報與規則和本機版完全相同，差在三件事：
 
 - 每個使用者用自己的 Google 帳號登入；
@@ -46,7 +48,17 @@ ChatGPT ──OAuth 2.1 + PKCE──▶ SEO Pulse（授權端 + MCP 伺服器）
 
 不要在雲端設定 `SEO_PULSE_GSC_SITE_URL`、`SEO_PULSE_GA4_PROPERTY_ID`、`SEO_PULSE_PRODUCTION_HOSTS`。雲端版必須由使用者指定網站：先呼叫 `list_sites`、`list_ga4_properties`，再帶入 `site_url`、`property_id`。
 
-## Google Cloud 設定（GCP 專案 geocheck-508206）
+## Google Cloud 設定
+
+三個專案分工（2026-10-21 起）：
+
+- **lslabs-seo-pulse**（不需帳單）：專門給雲端版的 OAuth 同意畫面（品牌「SEO Pulse」）與網頁應用程式 OAuth client，Search Console／GA4 Data／Analytics Admin API 在這裡啟用，API 配額算在這個專案。
+- **ga4-mcp-506714**：Cloud Run 主機、Cloud Build、Artifact Registry、Secret Manager（`seo-pulse-token-keys`、`seo-pulse-google-secret`）與預算通知。
+- **geocheck-508206**：本機版自備的 OAuth 電腦版 client（不變）。
+
+這樣分的原因有兩個：
+- geocheck-508206 與 ga4-mcp-506714 的同意畫面已分別屬於 GeoCheck 與純家教，一個專案只能有一套品牌。
+- 帳單帳戶已連結 5 個專案，達到 Google 上限，主機只能放在已有帳單的專案。
 
 1. **啟用 API**：Google Search Console API、Google Analytics Data API、Google Analytics Admin API。Admin API 給 `list_ga4_properties` 使用。
 2. **OAuth 同意畫面**：
@@ -62,12 +74,12 @@ ChatGPT ──OAuth 2.1 + PKCE──▶ SEO Pulse（授權端 + MCP 伺服器）
 4. **建立網頁應用程式 OAuth client**：已授權的重新導向 URI 填 `https://pulse.lslabs.tw/oauth/google/callback`。
 5. **發布狀態維持「正式版」**。測試版的 refresh token 7 天就會失效。
 
-## 部署（Cloud Run，預定 asia-east1）
+## 部署（Cloud Run，asia-east1，專案 ga4-mcp-506714）
 
 在 repo 根目錄執行，或交給 Cloud Build：
 
 ```bash
-gcloud run deploy seo-pulse --source . --region asia-east1 --project geocheck-508206 --min-instances 0 --max-instances 1 --concurrency 20 --cpu 1 --memory 512Mi --timeout 120 --cpu-throttling --set-env-vars SEO_PULSE_PUBLIC_URL=https://pulse.lslabs.tw,SEO_PULSE_GOOGLE_WEB_CLIENT_ID=<client id>,SEO_PULSE_ALLOWED_EMAILS=<邀請名單> --set-secrets SEO_PULSE_GOOGLE_WEB_CLIENT_SECRET=seo-pulse-google-secret:latest,SEO_PULSE_TOKEN_KEYS=seo-pulse-token-keys:latest --allow-unauthenticated
+gcloud run deploy seo-pulse --source . --region asia-east1 --project ga4-mcp-506714 --min-instances 0 --max-instances 1 --concurrency 20 --cpu 1 --memory 512Mi --timeout 120 --cpu-throttling --set-env-vars SEO_PULSE_PUBLIC_URL=https://pulse.lslabs.tw,SEO_PULSE_GOOGLE_WEB_CLIENT_ID=<client id>,SEO_PULSE_ALLOWED_EMAILS=<邀請名單> --set-secrets SEO_PULSE_GOOGLE_WEB_CLIENT_SECRET=seo-pulse-google-secret:latest,SEO_PULSE_TOKEN_KEYS=seo-pulse-token-keys:latest --allow-unauthenticated
 ```
 
 - `--allow-unauthenticated` 指的是 Cloud Run 不做 IAM 檢查。認證由 SEO Pulse 自己的 OAuth 負責，ChatGPT 才連得到。
@@ -76,7 +88,7 @@ gcloud run deploy seo-pulse --source . --region asia-east1 --project geocheck-50
   - 優先用 Cloud Run 網域對應（免費）。上線前先確認 asia-east1 支援；不支援就改用 Firebase Hosting 轉到 Cloud Run（免費額度內）。
   - 不要用外部負載平衡器，月費約 US$18 起。
 - **上線後檢查**：
-  - `GET /healthz` 回 `ok`；
+  - `GET /health` 回 `ok`；
   - `GET /` 轉到產品頁；
   - `GET /.well-known/oauth-protected-resource` 與 `/.well-known/oauth-authorization-server` 都回 JSON；
   - `POST /mcp` 沒帶 token 時回 401，並附 `WWW-Authenticate`。
@@ -107,7 +119,7 @@ gcloud run deploy seo-pulse --source . --region asia-east1 --project geocheck-50
 
 ### 費用約束清單（上線前完成）
 
-1. 在 GCP 帳單建立預算 **US$5／月**，並設定 50%、90%、100% 的 email 通知。
+1. 在 GCP 帳單建立預算 **US$5／月**，並設定 50%、90%、100% 的 email 通知。已建立：帳單帳戶幣別是新台幣，所以設為 NT$150／月，範圍限 ga4-mcp-506714。
 2. Cloud Run 設定 `--max-instances 1`、`--min-instances 0`、`--cpu-throttling`。
 3. 應用程式上限維持預設，或調得更低：`SEO_PULSE_DAILY_TOTAL`、`SEO_PULSE_RATE_PER_DAY`。
 4. 邀請名單控制人數。依每人每日 200 次計算，2,000 次的總上限大約可以支撐 10 位重度使用者同時用滿。

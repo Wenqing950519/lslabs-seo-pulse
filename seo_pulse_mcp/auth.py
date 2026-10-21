@@ -32,6 +32,7 @@ from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from pydantic import Field
 from starlette.responses import HTMLResponse, RedirectResponse
 
+from . import events
 from .branding import WEBSITE_URL
 from .connectors.credentials import GA4_SCOPES, GSC_SCOPES
 
@@ -154,6 +155,12 @@ def _page(status, title, body):
     return HTMLResponse(content, status_code=status, headers={"Cache-Control": "no-store"})
 
 
+def _signed(outcome, severity="INFO", subject=None):
+    """Sign-in funnel event; the email never leaves this module, only a hash of `sub`."""
+    fields = {"subject": events.subject_hash(subject)} if subject else {}
+    events.emit("sign_in", severity, outcome=outcome, **fields)
+
+
 class StatelessOAuthProvider:
     """OAuthAuthorizationServerProvider for the MCP SDK; see the module docstring."""
 
@@ -258,28 +265,36 @@ class StatelessOAuthProvider:
         query = request.query_params
         state = self.codec.unseal("state", query.get("state", ""), STATE_TTL)
         if state is None:
+            _signed("expired_state", "WARNING")
             return _page(400, "登入連結已失效", "這個登入連結已過期或無效，請回到 AI App 重新連線 SEO Pulse。")
         if query.get("error") or not query.get("code"):
+            _signed("cancelled")
             return RedirectResponse(construct_redirect_uri(state["ru"], error="access_denied",
                                                            error_description="Google 授權未完成", state=state["st"]), 302)
         tokens = await self._google_tokens(query["code"], state["gv"])
         claims = self._identity(tokens) if tokens else None
         if claims is None:
+            _signed("google_failed", "ERROR")
             return _page(502, "Google 登入失敗", "無法向 Google 完成登入，請稍後重試。")
         email = claims.get("email", "").lower()
+        subject = claims["sub"]
         if not self.access_policy.allows(email):
+            _signed("not_invited", "WARNING", subject)
             return _page(403, "尚未開放這個帳號",
                          f"SEO Pulse 雲端版目前採邀請制，{email} 不在試點名單。申請試用請寫信並附上要授權的 Google 帳號。")
         if not set(READ_SCOPES) <= set(tokens.get("scope", "").split()):
+            _signed("missing_scope", "WARNING", subject)
             return _page(400, "缺少必要權限",
                          "請在 Google 授權畫面同時勾選 Search Console 與 Google Analytics 的唯讀權限，再回到 AI App 重新連線。")
         refresh_token = tokens.get("refresh_token")
         if not refresh_token:
+            _signed("no_refresh_token", "ERROR", subject)
             return _page(502, "Google 未回傳授權", "Google 沒有回傳長期授權，請到 Google 帳戶的第三方連線移除 SEO Pulse 後重試。")
         self.credentials.prime(refresh_token, tokens.get("access_token"), tokens.get("expires_in", 0))
         code = self.codec.seal("code", {
             "cid": state["cid"], "ru": state["ru"], "rue": state["rue"], "cc": state["cc"], "sc": state["sc"],
             "aud": state["aud"], "sub": claims["sub"], "em": email, "grt": refresh_token})
+        _signed("signed_in", "INFO", subject)
         return RedirectResponse(construct_redirect_uri(state["ru"], code=code, state=state["st"]), 302)
 
     # --- token endpoint ------------------------------------------------------------
