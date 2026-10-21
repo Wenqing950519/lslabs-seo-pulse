@@ -13,3 +13,6 @@ class GSCConnector(ABC):
 class GA4Connector(ABC):
     @abstractmethod
     def report(self, start_date: str, end_date: str) -> list[dict]: ...
+
+    def list_properties(self) -> list[dict]:
+        raise NotImplementedError

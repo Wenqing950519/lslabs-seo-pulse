@@ -146,7 +146,64 @@ UPDATE 2：補齊 credentials*.json、service-account*.json、tokens、node_modu
 - HTTP 實測 `initialize` 的 `serverInfo` 為 `{name: seo-pulse, version: 0.2.0}`；新測試 `tests/test_server.py::test_initialize_reports_package_version_as_server_info`、`tests/test_http_transport.py::test_env_var_alone_does_not_allow_remote` 通過。
 # 2026-10-21 PR #2 review fixes
 
+## 改了什麼
+
 - 修正跨網站週報：每次呼叫建立獨立設定，GA4 清理與異常偵測使用相同正式網域，避免 A10／A11 等規則漏報；保留原始資料污染比例。
 - `site_url` 同步決定週報網站與 A9 canonical 判定。URL-prefix 保留 scheme／host／port；網域屬性保留其範圍內既有 canonical，跨網域時預設 HTTPS。後續未帶參數的呼叫仍使用原環境設定。
 - 統一工具註冊時的 docstring 縮排，修正 Python 3.12 與 3.13+ 編譯差異造成的合約指紋不一致；既有 0.2.0 工具合約內容不變。
-- 驗證：鎖定依賴、Python 3.12；pytest 161 passed（新增 9 案例）；tool-contract `--check` 通過；兩份 plugin manifest 的 stdio smoke 與 HTTP fixture smoke 通過。不使用真實 Google 資料。
+
+## 驗證結果
+
+- 鎖定依賴、Python 3.12；pytest 161 passed（新增 9 案例）；tool-contract `--check` 通過；兩份 plugin manifest 的 stdio smoke 與 HTTP fixture smoke 通過。不使用真實 Google 資料。
+
+# 2026-10-21 0.3.0 雲端版：ChatGPT 插件試點（審計 docs/audits/2026-10-21-seo-pulse-pr2-cloud-audit.md 的修正）
+
+## 改了什麼
+
+- **參數路徑缺陷（審計 §3.B）**
+  - 網域屬性的其他子網域改為另列 `subdomain_sessions`／`subdomain_hosts`，不再算入污染。新增 `pollution_ratio`；`pollution_warning` 只看非同網域主機。`excluded_sessions`／`excluded_ratio` 意義不變。
+  - URL-prefix 屬性只推導該主機：`https://blog.example.com/` 不再推出 `www.blog.example.com`。
+  - 空的 `sc-domain:`、沒有主機的網址、含空白或 scheme 的網域一律拒絕，不再靜默退回環境變數。
+  - `SEO_PULSE_HTTP_PORT` 非整數時回繁中錯誤；另讀 Cloud Run 的 `PORT`。
+  - fixture 模式收到 `site_url`／`property_id` 時，週報維持 example.com，並在 warnings 註明參數已忽略。
+- **結構問題（審計 §3.A）**
+  - 工具改在背景執行緒執行（`runtime.py`），並以 `CapacityLimiter` 限制同時執行數。同步的 Google 呼叫不再卡住事件迴圈；限制器依事件迴圈分開建立。
+  - 新增 `Caller`（`caller.py`）傳遞每個請求的使用者。`get_connectors()` 看到 `Caller` 就改用 `RemoteUserCredentialProvider`；雲端版不讀網站與資源的環境變數，缺參數時回錯誤，提示先 `list_sites`／`list_ga4_properties`。
+  - SEO Pulse 自己當 OAuth 授權端（`auth.py`），Google 負責登入。DCR、PKCE S256、`resource` 綁定與 `validate_token_resource` 都已實作，不需要 OAuth proxy 或外部授權服務。
+    - 無狀態：client_id 以 HMAC 簽章，授權碼與存取／更新憑證以 Fernet 加密並攜帶 Google refresh token，不需要資料庫。
+    - DCR 只接受 ChatGPT、Claude 與本機 loopback 的 redirect。
+    - 有邀請名單，每次請求都重新檢查。
+  - 刷新競態：雲端每位使用者一把鎖，並快取短期權杖；本機 provider 改為程序共用，並在記憶體快取有效憑證。
+- **上架與 Google 要求（審計 §4）**
+  - `hosting.py` 提供 `/.well-known/oauth-protected-resource`（根目錄與 `/mcp` 兩處）與 AS metadata；AS metadata 補上 `none` 認證方式。另有 `/healthz`、`/` 轉產品頁、網域驗證檔。
+  - uvicorn 不送 `server` 標頭；雲端模式關閉 access log，因為查詢字串含 OAuth code。
+  - `Dockerfile`；`docs/hosting.md`（環境變數、GCP 設定、Cloud Run 部署、費用上限、上架對照）。
+  - `distribution/openai/`（plugin.json、遠端 mcp.json 使用 OAuth DCR）與 `scripts/build_openai_plugin.py`。
+- **成本**：每人每分鐘、每人每日、全站每日的呼叫上限，以及相同呼叫的結果快取，預設值對應 Cloud Run 免費額度。`--max-instances 1` 為硬上限。
+- **導流**
+  - 週報頁尾連到 `https://lslabs.tw/seo-pulse/`，UTM 區分本機與雲端。
+  - `serverInfo` 帶 `websiteUrl` 與 `icons`。
+  - instructions 加一句「說明週報由 LS-Labs SEO Pulse 產生」；伺服器根目錄轉到產品頁。
+- 新工具 `list_ga4_properties`（Analytics Admin API）；GA4 工具新增選填 `site_url`。
+- 版本 0.3.0，tool-contract 重新產生；`seo-pulse keygen` 產生金鑰。
+- 文件：README 改為三種執行模式，Skill 加入雲端流程；`docs/credential-provider.md` 由規劃改寫為實作說明。
+
+## 為什麼
+
+使用者 10/21 決定 SEO Pulse 以插件形式進入 ChatGPT 等網頁版 AI，模型與方案成本由使用者端負擔，作為插件市場的試點，並在合規範圍內導流到 LS-Labs。決策見 home `docs/DECISION_LOG.md` LSL-D-008。
+
+## 設計理由
+
+- **無狀態憑證**：不用資料庫，因此沒有主機以外的費用，也沒有集中保存的 Google 授權可以外洩。
+  - 代價一：已發出的更新憑證無法單獨作廢，改用 Google 端撤銷與邀請名單即時檢查來處理。
+  - 代價二：授權碼單次使用只在單一程序內成立，`--max-instances 1` 讓它精確。
+- **子網域另列而不納入**：網域屬性的 GSC 數字包含子網域，但哪些子網域算正式站是使用者的範圍選擇，不由程式代為決定。lslabs.tw 自己只算主站，維持既有決定。
+
+## 未做項目
+
+- 實際部署、`pulse.lslabs.tw` 網域、Google 品牌驗證、OpenAI 開發者驗證與上架審核材料（影片、測試案例、審核帳號），都需要人工操作與授權。
+- CIMD（Client ID Metadata Document）：SDK 1.30 伺服器端未支援，目前用 DCR，ChatGPT 支援 DCR。
+
+## 驗證結果
+
+見本次結案紀錄；pytest、contract `--check`、stdio smoke、本機 HTTP smoke 與雲端模式本機冒煙測試。

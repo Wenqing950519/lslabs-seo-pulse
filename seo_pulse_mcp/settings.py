@@ -22,6 +22,10 @@ class Settings:
     timezone: str
     gsc_lag_days: int
     ctr_benchmarks_path: str | None
+    # GSC property the report covers; a `sc-domain:` property also covers subdomains.
+    gsc_site_url: str | None = None
+    # True when someone chose the production hosts (env or tool parameter), not derived/defaulted.
+    hosts_explicit: bool = False
 
     @property
     def uses_default_hosts(self):
@@ -53,4 +57,6 @@ def load_settings(env=None) -> Settings:
     return Settings(connector=connector, production_hosts=hosts,
                     exclude_hosts=_host_list(env.get('SEO_PULSE_EXCLUDE_HOSTS', '')),
                     canonical_origin=origin, timezone=timezone, gsc_lag_days=lag,
-                    ctr_benchmarks_path=env.get('SEO_PULSE_CTR_BENCHMARKS_PATH') or None)
+                    ctr_benchmarks_path=env.get('SEO_PULSE_CTR_BENCHMARKS_PATH') or None,
+                    gsc_site_url=env.get('SEO_PULSE_GSC_SITE_URL', '').strip() or None,
+                    hosts_explicit=bool(env.get('SEO_PULSE_PRODUCTION_HOSTS', '').strip()))

@@ -6,20 +6,19 @@ exact file layout, permissions (0o700 dirs, atomic write, owner-only file) and e
 messages as seo-pulse 0.1.0. `context` is accepted by `CredentialProvider.get()` but
 always `None` in this phase — connectors never receive a per-caller identity yet.
 
-Phase 2 (not implemented here, planning note only): a `RemoteUserCredentialProvider`
-would be handed a non-None `context` identifying the calling user. That identity would
-already be verified by an OAuth proxy sitting in front of this MCP server (the proxy
-validates the ChatGPT/OAuth 2.1 bearer token before the request ever reaches
-`CredentialProvider.get()`). The provider would then look up that user's Google
-refresh token from encrypted storage (e.g. a database or KMS-backed secret store,
-keyed by the verified identity), refresh it if expired, and return `Credentials` —
-never prompting or opening an interactive browser flow, since that only makes sense
-for the local single-user case. See `docs/credential-provider.md`.
+`RemoteUserCredentialProvider` serves the hosted server: `context` is the verified
+`Caller` (see seo_pulse_mcp.caller) whose Google refresh token arrived inside the
+encrypted bearer token. It never prompts and never writes to disk; short-lived Google
+access tokens are cached in memory per refresh token, with one lock per caller so
+concurrent calls refresh once. See `docs/credential-provider.md`.
 """
+import hashlib
 import json
 import os
 import tempfile
+import threading
 from abc import ABC, abstractmethod
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from google.auth.exceptions import RefreshError
@@ -30,6 +29,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 GSC_SCOPES = ("https://www.googleapis.com/auth/webmasters.readonly",)
 GA4_SCOPES = ("https://www.googleapis.com/auth/analytics.readonly",)
 AUTH_REQUIRED = "Google 授權無效或尚未設定，請先執行 seo-pulse auth。"
+REMOTE_AUTH_REQUIRED = "Google 授權已失效或被撤銷，請在 AI App 中移除 SEO Pulse 連線後重新連線。"
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 def _save_token(path, credentials):
@@ -94,7 +95,103 @@ class CredentialProvider(ABC):
 
 
 class LocalFileCredentialProvider(CredentialProvider):
-    """Default provider: the same single-local-user token cache as 0.1.0."""
+    """Default provider: the same single-local-user token files as 0.1.0.
+
+    Valid credentials stay in memory, and one lock per service keeps concurrent
+    calls from refreshing (and rewriting) the same token file at once.
+    """
+
+    _locks = {"gsc": threading.Lock(), "ga4": threading.Lock()}
+
+    def __init__(self):
+        self._cache = {}
 
     def get(self, service, context=None):
-        return _credentials(service)
+        key = (service, os.environ.get("SEO_PULSE_TOKEN_DIR"))
+        with self._locks[service]:
+            credentials = self._cache.get(key)
+            if not getattr(credentials, "valid", False):
+                credentials = self._cache[key] = _credentials(service)
+            return credentials
+
+
+_local_provider = LocalFileCredentialProvider()
+
+
+def local_provider():
+    """Shared so the in-memory cache and locks span connector instances."""
+    return _local_provider
+
+
+class RemoteUserCredentialProvider(CredentialProvider):
+    """Per-caller Google credentials for the hosted server (one grant covers GSC and GA4)."""
+
+    MAX_CACHED = 1000
+
+    def __init__(self, client_id, client_secret, *, credentials_factory=Credentials,
+                 request_factory=Request, token_uri=GOOGLE_TOKEN_URI):
+        self._client_id, self._client_secret = client_id, client_secret
+        self._factory, self._request_factory, self._token_uri = credentials_factory, request_factory, token_uri
+        self._guard = threading.Lock()
+        self._locks = {}
+        self._cache = {}
+
+    @staticmethod
+    def _key(refresh_token):
+        return hashlib.sha256(refresh_token.encode()).hexdigest()
+
+    def _lock_for(self, key):
+        with self._guard:
+            if len(self._cache) > self.MAX_CACHED:
+                for stale in [k for k, c in self._cache.items() if not c.valid]:
+                    self._cache.pop(stale, None)
+                    self._locks.pop(stale, None)
+            return self._locks.setdefault(key, threading.Lock())
+
+    def _new(self, refresh_token, token=None):
+        return self._factory(token=token, refresh_token=refresh_token, token_uri=self._token_uri,
+                             client_id=self._client_id, client_secret=self._client_secret)
+
+    def prime(self, refresh_token, access_token, expires_in):
+        """Reuse the access token Google returned at sign-in instead of refreshing at once."""
+        credentials = self._new(refresh_token, token=access_token)
+        # google-auth compares expiry as naive UTC.
+        credentials.expiry = (datetime.now(timezone.utc) + timedelta(seconds=int(expires_in) - 60)).replace(tzinfo=None)
+        key = self._key(refresh_token)
+        with self._lock_for(key):
+            self._cache[key] = credentials
+
+    def forget(self, refresh_token):
+        key = self._key(refresh_token)
+        with self._guard:
+            self._cache.pop(key, None)
+
+    def get(self, service, context=None):
+        if context is None or not getattr(context, "google_refresh_token", None):
+            raise RuntimeError(REMOTE_AUTH_REQUIRED)
+        key = self._key(context.google_refresh_token)
+        with self._lock_for(key):
+            credentials = self._cache.get(key)
+            if credentials is None or not credentials.valid:
+                credentials = self._new(context.google_refresh_token)
+                try:
+                    credentials.refresh(self._request_factory())
+                except RefreshError:
+                    raise RuntimeError(REMOTE_AUTH_REQUIRED) from None
+                self._cache[key] = credentials
+            return credentials
+
+
+_remote_provider = None
+
+
+def configure_remote_provider(provider):
+    """Installed by the hosted server at startup; connectors use it for every Caller."""
+    global _remote_provider
+    _remote_provider = provider
+
+
+def remote_provider():
+    if _remote_provider is None:
+        raise RuntimeError("雲端模式尚未設定 Google Web OAuth client。")
+    return _remote_provider

@@ -1,5 +1,6 @@
 """Deterministic Markdown layout for weekly_report; the AI only fills summary and recommendations."""
-from .branding import DISPLAY_NAME, FOOTER
+from .branding import DISPLAY_NAME, footer
+from .caller import current_caller
 from .rules import RULE_LABELS
 
 POSITION_RULES = {"A4", "A6"}
@@ -110,4 +111,5 @@ def render_markdown(report):
         while body and body[-1] == "":
             body = body[:-1]
         lines += [f"## {title}", ""] + body + [""]
-    return "\n".join(lines + ["---", "", FOOTER]) + "\n"
+    edition = "cloud" if current_caller() is not None else "local"
+    return "\n".join(lines + ["---", "", footer(edition)]) + "\n"

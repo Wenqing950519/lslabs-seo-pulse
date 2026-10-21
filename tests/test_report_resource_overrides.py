@@ -87,17 +87,11 @@ def test_unrelated_domain_suffix_does_not_reuse_old_canonical_origin():
     assert resolve_report_settings(defaults, "sc-domain:example.com").canonical_origin == "https://example.com"
 
 
-def test_tool_descriptions_are_stable_across_python_docstring_formats(monkeypatch):
+def test_tool_descriptions_are_stable_across_python_docstring_formats():
     registered = []
-
-    def tool(**kwargs):
-        registered.append(kwargs["description"])
-        return lambda function: function
-
-    monkeypatch.setattr(server.mcp, "tool", tool)
     for doc in ["Summary.\n\n    Details.\n    ", "Summary.\n\nDetails.\n"]:
         def example():
             pass
         example.__doc__ = doc
-        server._tool("Example")(example)
+        registered.append(server._description(example))
     assert registered == ["Summary.\n\nDetails.\n"] * 2

@@ -92,7 +92,12 @@ def build_weekly_report(gsc, ga4, settings, end_date=None, top_n=20, now=None, r
     if not (ga_now or ga_old):
         not_evaluated.append({"rules": "A10-A13", "reason": "兩週都沒有正式網域的 GA4 資料。"})
     if quality_now["pollution_warning"]:
-        warnings.append(f"資料污染警告：本週 GA4 排除 {quality_now['excluded_ratio']:.0%} sessions。")
+        warnings.append(f"資料污染警告：本週 GA4 有 {quality_now['pollution_ratio']:.0%} sessions 來自非正式網域。")
+    # A chosen host list is a scope decision; only prompt when hosts were derived from site_url.
+    if quality_now["subdomain_sessions"] and not settings.hosts_explicit:
+        hosts = "、".join(quality_now["subdomain_hosts"])
+        warnings.append(f"同網域其他子網域（{hosts}）本週 {quality_now['subdomain_sessions']:,} sessions 未計入 GA4；"
+                        "Search Console 網域屬性會計入這些子網域，若它們也是正式站，請傳 production_hosts。")
 
     origin = settings.canonical_origin
     ai_sources = (rules or {}).get("ai_sources", RULES["ai_sources"])

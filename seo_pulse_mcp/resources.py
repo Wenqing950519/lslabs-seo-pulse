@@ -7,22 +7,39 @@ is not given but site_url is, the production host(s) are derived from site_url
 (see derive_production_hosts). site_url/property_id themselves fall back straight
 to the environment inside GoogleGSCConnector/GoogleGA4Connector, unchanged from 0.1.0.
 """
+import re
 from dataclasses import replace
 from urllib.parse import urlparse
 
 from .settings import _host_list
 
 
+_HOST = re.compile(r"^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+SITE_URL_ERROR = ("site_url 格式錯誤：必須是 sc-domain: 開頭的網域屬性（例如 sc-domain:example.com），"
+                  "或 http(s):// 開頭、含主機名稱的 URL-prefix 屬性（例如 https://example.com/）。")
+
+
+def _site_host(site_url):
+    """Host named by a GSC property, or None when the value names no usable host."""
+    if site_url.startswith("sc-domain:"):
+        host = site_url[len("sc-domain:"):].strip().lower().rstrip(".")
+    elif site_url.startswith(("http://", "https://")):
+        host = (urlparse(site_url).hostname or "").lower().rstrip(".")
+    else:
+        return None
+    return host if _HOST.match(host) else None
+
+
 def validate_site_url(site_url):
-    """Raise a Traditional Chinese ValueError if a tool-supplied site_url is malformed."""
+    """Raise a Traditional Chinese ValueError if a tool-supplied site_url is malformed.
+
+    An empty `sc-domain:` or a host-less URL is rejected rather than silently
+    falling back to the environment default, which would report on another site.
+    """
     if site_url is None:
         return None
-    if not (site_url.startswith("sc-domain:") or site_url.startswith("http://")
-            or site_url.startswith("https://")):
-        raise ValueError(
-            "site_url 格式錯誤：必須是 sc-domain: 開頭的網域屬性，"
-            "或 http(s):// 開頭的 URL-prefix 屬性。"
-        )
+    if not isinstance(site_url, str) or _site_host(site_url) is None:
+        raise ValueError(SITE_URL_ERROR)
     return site_url
 
 
@@ -42,21 +59,18 @@ def validate_property_id(property_id):
 def derive_production_hosts(site_url):
     """Derive GA4 production host(s) from a GSC site_url, or None when not derivable.
 
-    `sc-domain:x` 或 `http(s)://x/` 推導出 x；同時納入 x 與 www.x 兩者，因為同一個網域
-    屬性常同時涵蓋裸網域與 www 子網域，只納入其中一個會讓另一邊的 GA4 流量被誤判為污染。
+    `sc-domain:x` 推導出 x 與 www.x：網域屬性常同時涵蓋裸網域與 www，只取一個會把另一邊
+    的 GA4 流量誤判為排除。其他子網域不自動納入（見 hosts.clean_hosts 的 subdomain_sessions），
+    要納入請明確傳 production_hosts。URL-prefix 屬性只涵蓋單一 origin，所以只取該主機。
     """
     if not site_url:
         return None
-    host = None
-    if site_url.startswith("sc-domain:"):
-        host = site_url[len("sc-domain:"):].strip().lower()
-    elif site_url.startswith("http://") or site_url.startswith("https://"):
-        host = (urlparse(site_url).hostname or "").lower()
+    host = _site_host(site_url)
     if not host:
         return None
+    if not site_url.startswith("sc-domain:"):
+        return (host,)
     apex = host[4:] if host.startswith("www.") else host
-    if not apex:
-        return None
     return tuple(sorted({apex, f"www.{apex}"}))
 
 
@@ -97,4 +111,6 @@ def resolve_report_settings(settings, site_url=None, production_hosts=None):
             parsed = urlparse(site_url)
             if parsed.hostname:
                 origin = f"{parsed.scheme}://{parsed.netloc}"
-    return replace(settings, production_hosts=hosts, canonical_origin=origin)
+    explicit = production_hosts is not None or (derive_production_hosts(site_url) is None and settings.hosts_explicit)
+    return replace(settings, production_hosts=hosts, canonical_origin=origin,
+                   gsc_site_url=site_url or settings.gsc_site_url, hosts_explicit=explicit)

@@ -24,8 +24,8 @@ def test_server_tools():
 
 
 async def test_initialize_reports_package_version_as_server_info():
-    """serverInfo.version must be our package version (0.2.0), not the mcp SDK's."""
+    """serverInfo.version must be our package version, not the mcp SDK's."""
     async with create_connected_server_and_client_session(server.mcp) as client:
         result = await client.initialize()
     assert result.serverInfo.name == "seo-pulse"
-    assert result.serverInfo.version == metadata.version("seo-pulse-mcp") == "0.2.0"
+    assert result.serverInfo.version == metadata.version("seo-pulse-mcp") == "0.3.0"

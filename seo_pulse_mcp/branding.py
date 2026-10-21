@@ -4,10 +4,23 @@ from importlib import metadata
 from pathlib import Path
 
 DISPLAY_NAME = "LS-Labs SEO Pulse"
-FOOTER = "Powered by LS-Labs｜MIT"
+WEBSITE_URL = "https://lslabs.tw/seo-pulse/"
+ICON_URL = "https://lslabs.tw/brand/logos/ls-labs/ls-labs-app-icon-512.png"
+
+
+def report_link(edition):
+    """Product page link carried in every report footer; UTM tags tell local and cloud apart."""
+    return f"{WEBSITE_URL}?utm_source=seo-pulse&utm_medium=report&utm_campaign=weekly-report&utm_content={edition}"
+
+
+def footer(edition="local"):
+    return f"由 [LS-Labs SEO Pulse]({report_link(edition)}) 產生｜MIT"
+
+
+FOOTER = footer()
 
 _DISTRIBUTION_NAME = "seo-pulse-mcp"
-_FALLBACK_VERSION = "0.2.0"
+_FALLBACK_VERSION = "0.3.0"
 
 
 def _read_pyproject_version():
