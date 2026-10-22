@@ -2,6 +2,8 @@
 
 本文件說明 SEO Pulse 雲端版的後端組成、怎麼判斷它是否正常、要看哪些用量與費用、以及要在什麼情況發出警示。部署與設定步驟見 [hosting.md](hosting.md)。本文寫於 2026-10-21。`seo-pulse-00002-d9w` 是第一個上線版本，沒有 `/health` 與結構化事件；重新部署後才有這兩項，請以 `gcloud run services describe` 查到的最新版本為準。
 
+2026-10-22 安全更新加入 Firestore 共享限制與授權碼防重放；以下行為需確認部署的是含此更新的 revision。先前只依賴記憶體的 revision 不具備相同保證。
+
 ## 1. 組成與位置
 
 | 元件 | 位置 | 說明 |
@@ -9,7 +11,8 @@
 | MCP 伺服器 | Cloud Run 服務 `seo-pulse`，專案 `ga4-mcp-506714`，區域 `asia-east1` | Python 0.3.0；容器映像在 Artifact Registry `asia-east1/cloud-run-source-deploy` |
 | 對外網址 | `https://pulse.lslabs.tw`（MCP 端點 `/mcp`） | Cloud Run 網域對應，DNS 在 Cloudflare：`pulse` CNAME `ghs.googlehosted.com`，必須是 DNS only |
 | 備用網址 | `https://seo-pulse-626389044762.asia-east1.run.app`、`https://seo-pulse-h7lv7s4yaa-de.a.run.app` | 直接打到 Cloud Run，適合在網域或憑證出問題時區分故障點。`/mcp` 只接受 `pulse.lslabs.tw` 的 Host：沒帶憑證時先被認證擋下回 401，帶有效憑證則回 421 |
-| 機密 | Secret Manager（專案 `ga4-mcp-506714`）：`seo-pulse-token-keys`、`seo-pulse-google-secret` | 前者是加密所有連線憑證的金鑰，後者是 Google OAuth client secret。**監控代理不應有讀取權** |
+| 機密 | Secret Manager（專案 `ga4-mcp-506714`）：`seo-pulse-token-keys`、`seo-pulse-google-secret`、`seo-pulse-state-hmac` | 依序用於加密憑證、Google OAuth、共享紀錄的 HMAC。**監控代理不應有讀取權** |
+| 共享安全狀態 | Firestore Native `(default)`、`asia-east1`，專案 `ga4-mcp-506714`，collection `seo_pulse_state` | 全站與個人用量、已兌換授權碼 HMAC；`expire_at` TTL 清除。不保存 Google token、原始帳號識別或報表 |
 | Google 登入 | 專案 `lslabs-seo-pulse`：同意畫面品牌「SEO Pulse」、網頁應用程式 client「SEO Pulse cloud」 | 外部、正式版、未驗證。Search Console、GA4 Data、Analytics Admin API 的配額都算在這個專案 |
 | 產品頁 | `https://lslabs.tw/seo-pulse/`、`/privacy/`、`/terms/` | Cloudflare Pages（home repo） |
 | 費用通知 | 帳單帳戶預算「SEO Pulse cloud (ga4-mcp-506714)」NT$150／月 | 用到 50%、90%、100% 時寄 email 給帳單管理員 |
@@ -19,10 +22,10 @@
 1. ChatGPT 讀 `/.well-known/oauth-protected-resource` 與 `/.well-known/oauth-authorization-server`，用 `POST /register` 做動態註冊。
 2. 使用者被導到 `GET /authorize`，再轉到 Google 登入；Google 回到 `GET /oauth/google/callback`。
 3. 伺服器在這一步檢查三件事：email 在邀請名單、四個唯讀範圍都有授權、拿到 refresh token。通過後把 Google 授權加密成授權碼，轉回 ChatGPT。
-4. ChatGPT 用 `POST /token` 換到存取憑證（1 小時）與更新憑證（30 天，使用時輪替）。
-5. 之後每次工具呼叫都是 `POST /mcp`，帶 `Authorization: Bearer …`。伺服器在記憶體解密憑證，依序檢查邀請名單、每人每分鐘、每人每日、全站每日上限與 15 分鐘結果快取，最後在背景執行緒呼叫 Google API。
+4. ChatGPT 用 `POST /token` 兌換授權碼；Firestore 原子登記成功後才發出存取憑證（1 小時）與更新憑證（30 天，使用時輪替）。其他程序或新 revision 也不能重複兌換同一碼。
+5. 之後每次工具呼叫都是 `POST /mcp`，帶 `Authorization: Bearer …`。伺服器在記憶體解密憑證並檢查邀請名單；若命中 15 分鐘結果快取，確認 Firestore 可用後回傳。未命中則在共享交易中檢查並扣除每人每分鐘、每人每日、全站每日額度，成功後才在背景執行緒呼叫 Google API。
 
-伺服器沒有資料庫，也不在硬碟保存任何使用者資料。重啟後，記憶體裡的計數、快取與 Google 短期權杖都會清空，已發出的連線憑證仍然有效。
+重啟只清空結果快取與 Google 短期權杖；共享用量與授權碼紀錄保留，已發出的連線憑證仍依效期與邀請名單驗證。全站及每位使用者各一筆計數跨日覆寫，TTL 到期時間為該 UTC 日結束後 24 小時；授權碼摘要到期時間為授權碼到期後 60 秒。TTL 清除通常在到期後 24 小時內完成，不參與授權有效性判定。細節見 hosting.md。
 
 ## 3. 健康檢查
 
@@ -30,6 +33,7 @@
 
 | 檢查 | 指令 | 正常結果 |
 |---|---|---|
+| 共享儲存可用性 | `curl --max-time 12 -s -o /dev/null -w "%{http_code}" https://pulse.lslabs.tw/health` | 200、內容 `ok`；唯讀 Firestore 交易，不扣額度、不呼叫 Google |
 | OAuth 探索文件 | `curl -s https://pulse.lslabs.tw/.well-known/oauth-protected-resource` | 200，JSON 的 `resource` 是 `https://pulse.lslabs.tw/mcp` |
 | 授權伺服器 metadata | `curl -s https://pulse.lslabs.tw/.well-known/oauth-authorization-server` | 200，`code_challenge_methods_supported` 含 `S256`，並有 `registration_endpoint` |
 | 認證閘門 | `curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "{}" https://pulse.lslabs.tw/mcp` | 401，回應標頭 `WWW-Authenticate` 含 `resource_metadata=` |
@@ -38,7 +42,7 @@
 | 網域對應 | `gcloud beta run domain-mappings describe --domain pulse.lslabs.tw --region asia-east1 --project ga4-mcp-506714` | `Ready: True`、`CertificateProvisioned: True` |
 | 服務版本 | `gcloud run services describe seo-pulse --region asia-east1 --project ga4-mcp-506714 --format="value(status.latestReadyRevisionName)"` | 跟上次記錄相同；改變就代表有人重新部署 |
 
-`/health` 端點（回 `ok`）已寫在程式裡，但要重新部署後才會上線。目前的 `seo-pulse-00002-d9w` 沒有它，而且 Cloud Run 前端會攔截 `/healthz`，所以在重新部署前請用第一列的探索文件當健康檢查。
+新版本 `/health` 在 Firestore 失效或等待超過 8 秒時回 503。OAuth 探索文件成功只代表 HTTP 可用，不能取代此檢查。Cloud Run 前端會攔截 `/healthz`，因此使用 `/health`。冷啟動時間需另外納入外部監控的逾時設定。
 
 **判斷故障點**：同一項檢查改打備用的 `run.app` 網址（`/mcp` 例外，見下）。
 
@@ -50,10 +54,10 @@
 
 | 層級 | 上限 | 設定位置 | 看得到嗎 |
 |---|---|---|---|
-| 每位使用者 | 每分鐘 20 次、每日 200 次 | 環境變數 `SEO_PULSE_RATE_PER_MINUTE`、`SEO_PULSE_RATE_PER_DAY` | 看不到（只在記憶體，見第 7 節） |
-| 全站 | 每日 2,000 次 | `SEO_PULSE_DAILY_TOTAL` | 同上 |
-| 結果快取 | 相同使用者、工具、參數 900 秒內不再呼叫 Google，也不計次數 | `SEO_PULSE_CACHE_SECONDS` | 同上 |
-| 同時執行 | 8 個工具 | `SEO_PULSE_MAX_CONCURRENCY` | 同上 |
+| 每位使用者 | 每分鐘 20 次、每日 200 次，跨程序／revision 共用 | 環境變數 `SEO_PULSE_RATE_PER_MINUTE`、`SEO_PULSE_RATE_PER_DAY` | Firestore 文件與結構化事件；監控不需直接取得使用者紀錄 |
+| 全站 | 每日 2,000 次，跨程序／revision 共用 | `SEO_PULSE_DAILY_TOTAL` | 事件的 `day_total` |
+| 結果快取 | 相同使用者、工具、參數 900 秒內不再呼叫 Google，也不計次數 | `SEO_PULSE_CACHE_SECONDS` | `outcome=cached` 事件 |
+| 同時執行 | 每個程序 8 個工具，不是跨實例總併發 | `SEO_PULSE_MAX_CONCURRENCY` | 程序設定 |
 | Cloud Run | 最多 1 台、每台同時 20 個請求、1 vCPU、512 MiB、逾時 120 秒、只在處理請求時計 CPU、閒置時 0 台 | 服務設定 | `gcloud run services describe` |
 | Google 使用者人數 | 驗證前整個專案生命週期最多 100 位使用者 | Google Auth Platform → 目標對象 | 只能在 Console 看 |
 | Google 授權次數 | 每日 10,000 次 | Google Auth Platform → 總覽 | 只能在 Console 看 |
@@ -61,6 +65,8 @@
 | GA4 Data API | 每個資源每日 200,000 token、每小時 40,000；同一專案對同一資源每小時 14,000 | Google，主要算在**使用者自己的 GA4 資源** | 同上 |
 
 應用程式的每日計數以 UTC 日界線重置，也就是台灣時間每天 08:00。
+
+共享限制依賴相同專案、資料庫、namespace 與 HMAC key。更改 namespace／key 會改變文件識別，不可當成一般版本輪替；舊記憶體版 revision 也必須停止接流量。Firestore 失效時新工具、快取讀取與授權碼兌換都會拒絕，沒有記憶體 fallback。單次工具可包含多個 Google API 呼叫，故工具額度不是 API 或帳單的硬上限。
 
 ## 5. 用量與費用
 
@@ -106,8 +112,8 @@ curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" "https://mo
 - **程式化讀取還沒設定**，有兩條路，都需要人工建立：
   1. **預算 Pub/Sub 通知**：預算會定期發布 `costAmount`（當期累計花費）到指定主題，監控代理訂閱即可，最即時。
   2. **帳單匯出到 BigQuery**：能查到每項服務的細項。
-- **預期值**：用量在免費額度內時，Cloud Run 為 NT$0。Secret Manager（2 個 secret）、Artifact Registry（單一映像，約 0.2 GB）、Cloud Logging 也都在免費額度內。
-- **最壞情況**：1 vCPU 整月滿載約 US$60。這是依 Tier 1 牌價估算，上線前請核對 Google Cloud Run 價格頁。
+- **預期值**：Cloud Run、Secret Manager（3 個 secret）、Artifact Registry 與 Cloud Logging 依實際用量與免費額度核對。Firestore 計數約每工具 2 讀 2 寫，快取與健康檢查也讀取；TTL 刪除不適用免費用量，不保證 NT$0。
+- **最壞情況**：先前單一 1 vCPU 滿載約 US$60 的估算只涵蓋 CPU，未涵蓋記憶體、請求、Firestore、網路與其他服務，不能當帳單上限；預算通知不會自動停機。
 
 ## 6. 網站流量（導流成效）
 
@@ -153,7 +159,7 @@ gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.serv
   - `INFO`：正常。
   - `WARNING`：撞上限、使用者參數錯誤、沒有受邀、少勾了權限、登入連結過期。
   - `ERROR`：Google API 或伺服器錯誤、Google 登入交換失敗、沒拿到 refresh token。
-- **隱私**：事件不含工具參數、email 或任何憑證。`subject` 是 Google `sub` 加鹽後取 SHA-256 的前 12 碼，只用來計算不重複的使用者人數。
+- **隱私**：事件不含工具參數、email 或任何憑證。日誌 `subject` 是 Google `sub` 加固定前綴後取 SHA-256 的前 12 碼；Firestore 文件另使用祕密金鑰 HMAC-SHA256，兩者不能視為相同識別。
 - **本機版**：不寫這些事件。
 
 查詢範例：
@@ -173,7 +179,7 @@ gcloud logging read 'resource.labels.service_name="seo-pulse" AND jsonPayload.ev
 
 **仍然看不到的**：
 
-- 應用程式的即時計數（每人每分鐘、每日已用次數），只能從事件的 `day_total` 與數量推算；
+- 尚未有面向監控的個人即時計數端點；例行監控用事件的 `day_total` 與數量，不需擴大讀取 Firestore 使用者紀錄的權限；
 - Google Auth Platform 的使用者總數，只能在 Console 看。
 
 ## 8. 警示門檻建議
@@ -181,6 +187,7 @@ gcloud logging read 'resource.labels.service_name="seo-pulse" AND jsonPayload.ev
 | 等級 | 條件 | 可能原因 |
 |---|---|---|
 | 緊急 | 健康檢查連續 2 次失敗 | 服務掛掉、網域或憑證失效 |
+| 緊急 | `/health` 503 或 `error_type=AdmissionUnavailable` 持續出現 | Firestore／IAM／連線故障或共享狀態等待逾時；工具會在 Google 呼叫前拒絕 |
 | 緊急 | 5 分鐘內 5xx 佔比 > 5% | 程式錯誤、Google API 異常 |
 | 緊急 | 收到預算 100% 通知 | 異常流量；先執行第 10 節的停用 |
 | 注意 | 當日請求數 > 1,500（全站上限的 75%） | 使用量成長或被濫用 |

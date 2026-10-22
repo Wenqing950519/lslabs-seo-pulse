@@ -5,9 +5,9 @@ COPY --from=ghcr.io/astral-sh/uv:0.13 /uv /bin/uv
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONUNBUFFERED=1
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --extra google --no-install-project
+RUN uv sync --frozen --no-dev --extra google --extra hosted --no-install-project
 COPY seo_pulse_mcp ./seo_pulse_mcp
-RUN uv sync --frozen --no-dev --extra google
+RUN uv sync --frozen --no-dev --extra google --extra hosted
 
 RUN useradd --create-home seo-pulse
 USER seo-pulse

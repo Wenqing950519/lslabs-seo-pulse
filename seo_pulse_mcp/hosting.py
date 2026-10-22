@@ -22,11 +22,14 @@ def _list(value):
     return tuple(item.strip() for item in (value or "").split(",") if item.strip())
 
 
-def _int(env, name, default):
+def _int(env, name, default, minimum=1):
     try:
-        return int(env.get(name) or default)
+        value = int(env.get(name) or default)
     except ValueError:
         raise ValueError(f"{name} 必須是整數，目前是：{env.get(name)}") from None
+    if value < minimum:
+        raise ValueError(f"{name} 必須大於或等於 {minimum}。")
+    return value
 
 
 def _verification_files(value):
@@ -47,6 +50,10 @@ class HostedConfig:
     google_client_secret: str = field(repr=False)
     token_keys: tuple = field(repr=False)
     access_policy: AccessPolicy
+    firestore_project: str
+    state_hmac_key: str = field(repr=False)
+    firestore_database: str = "(default)"
+    state_namespace: str = "seo-pulse"
     redirect_hosts: tuple = DEFAULT_REDIRECT_HOSTS
     allowed_hosts: tuple = ()
     allowed_origins: tuple = DEFAULT_ORIGINS
@@ -65,9 +72,14 @@ class HostedConfig:
         if parsed.scheme != "https" or not parsed.hostname or parsed.path not in ("", "/"):
             raise ValueError("SEO_PULSE_PUBLIC_URL 必須是 https:// 開頭、不含路徑的網址，例如 https://pulse.lslabs.tw。")
         missing = [name for name in ("SEO_PULSE_GOOGLE_WEB_CLIENT_ID", "SEO_PULSE_GOOGLE_WEB_CLIENT_SECRET",
-                                     "SEO_PULSE_TOKEN_KEYS") if not env.get(name)]
+                                     "SEO_PULSE_TOKEN_KEYS", "SEO_PULSE_FIRESTORE_PROJECT",
+                                     "SEO_PULSE_STATE_HMAC_KEY") if not env.get(name)]
         if missing:
             raise ValueError(f"雲端模式缺少設定：{', '.join(missing)}。")
+        # Validate without constructing a client or attempting network access.
+        from .admission import SharedAdmissionStore
+        namespace = env.get("SEO_PULSE_STATE_NAMESPACE") or "seo-pulse"
+        SharedAdmissionStore(None, namespace=namespace, hmac_key=env["SEO_PULSE_STATE_HMAC_KEY"])
         emails, domains = _list(env.get("SEO_PULSE_ALLOWED_EMAILS")), _list(env.get("SEO_PULSE_ALLOWED_EMAIL_DOMAINS"))
         open_signup = env.get("SEO_PULSE_OPEN_SIGNUP") == "1"
         if not (emails or domains or open_signup):
@@ -79,6 +91,10 @@ class HostedConfig:
             google_client_secret=env["SEO_PULSE_GOOGLE_WEB_CLIENT_SECRET"],
             token_keys=_list(env["SEO_PULSE_TOKEN_KEYS"]),
             access_policy=AccessPolicy(emails, domains, open_signup),
+            firestore_project=env["SEO_PULSE_FIRESTORE_PROJECT"],
+            firestore_database=env.get("SEO_PULSE_FIRESTORE_DATABASE") or "(default)",
+            state_namespace=namespace,
+            state_hmac_key=env["SEO_PULSE_STATE_HMAC_KEY"],
             redirect_hosts=_list(env.get("SEO_PULSE_ALLOWED_REDIRECT_HOSTS")) or DEFAULT_REDIRECT_HOSTS,
             allowed_hosts=_list(env.get("SEO_PULSE_ALLOWED_HOSTS")),
             allowed_origins=DEFAULT_ORIGINS + _list(env.get("SEO_PULSE_ALLOWED_ORIGINS")),
@@ -86,7 +102,7 @@ class HostedConfig:
             per_minute=_int(env, "SEO_PULSE_RATE_PER_MINUTE", 20),
             per_day=_int(env, "SEO_PULSE_RATE_PER_DAY", 200),
             daily_total=_int(env, "SEO_PULSE_DAILY_TOTAL", 2000),
-            cache_seconds=_int(env, "SEO_PULSE_CACHE_SECONDS", 900),
+            cache_seconds=_int(env, "SEO_PULSE_CACHE_SECONDS", 900, minimum=0),
             max_concurrency=_int(env, "SEO_PULSE_MAX_CONCURRENCY", 8),
         )
 
@@ -95,7 +111,7 @@ class HostedConfig:
         return urlparse(self.public_url).hostname
 
 
-def build_app(config, http_transport=None):
+def build_app(config, http_transport=None, state_store=None):
     """Starlette app: MCP at /mcp behind OAuth, plus discovery, callback and plain routes."""
     from mcp.server.auth.handlers.metadata import MetadataHandler, ProtectedResourceMetadataHandler
     from mcp.server.auth.routes import build_metadata, cors_middleware
@@ -107,18 +123,24 @@ def build_app(config, http_transport=None):
     from starlette.routing import Route
 
     from . import server
+    from .admission import AdmissionUnavailable, FirestoreBackend, SharedAdmissionStore, state_call
     from .connectors.credentials import RemoteUserCredentialProvider, configure_remote_provider
     from .runtime import ToolRuntime
 
+    if state_store is None:
+        state_store = SharedAdmissionStore(
+            FirestoreBackend(config.firestore_project, config.firestore_database),
+            namespace=config.state_namespace, hmac_key=config.state_hmac_key)
     credentials = RemoteUserCredentialProvider(config.google_client_id, config.google_client_secret)
     configure_remote_provider(credentials)
     runtime = ToolRuntime(max_concurrency=config.max_concurrency, per_minute=config.per_minute,
-                          per_day=config.per_day, daily_total=config.daily_total, cache_seconds=config.cache_seconds)
+                          per_day=config.per_day, daily_total=config.daily_total, cache_seconds=config.cache_seconds,
+                          shared_store=state_store, require_shared=True)
     provider = StatelessOAuthProvider(
         public_url=config.public_url, google_client_id=config.google_client_id,
         google_client_secret=config.google_client_secret, codec=TokenCodec(config.token_keys),
         access_policy=config.access_policy, redirect_hosts=config.redirect_hosts,
-        credentials=credentials, http_transport=http_transport)
+        credentials=credentials, state_store=state_store, http_transport=http_transport)
     registration = ClientRegistrationOptions(enabled=True, valid_scopes=[SCOPE], default_scopes=[SCOPE])
     revocation = RevocationOptions(enabled=True)
     auth = AuthSettings(issuer_url=AnyHttpUrl(config.public_url), resource_server_url=AnyHttpUrl(provider.resource_url),
@@ -143,7 +165,11 @@ def build_app(config, http_transport=None):
         return RedirectResponse(LANDING, 302)
 
     async def health(request):
-        return PlainTextResponse("ok")
+        try:
+            await state_call(state_store.check_available)
+        except AdmissionUnavailable:
+            return PlainTextResponse("unavailable", status_code=503, headers={"Cache-Control": "no-store"})
+        return PlainTextResponse("ok", headers={"Cache-Control": "no-store"})
 
     def text_file(content):
         async def serve_file(request):

@@ -1,10 +1,8 @@
 """Credential provider abstraction for Google connectors.
 
-This phase only ships `LocalFileCredentialProvider`: a single local user's cached
-OAuth token under `~/.config/seo-pulse/tokens` (or `SEO_PULSE_TOKEN_DIR`), with the
-exact file layout, permissions (0o700 dirs, atomic write, owner-only file) and error
-messages as seo-pulse 0.1.0. `context` is accepted by `CredentialProvider.get()` but
-always `None` in this phase — connectors never receive a per-caller identity yet.
+`LocalFileCredentialProvider` serves a single local user's cached OAuth token under
+`~/.config/seo-pulse/tokens` (or `SEO_PULSE_TOKEN_DIR`), preserving the file layout,
+atomic writes and owner-only permissions. Local calls have no caller context.
 
 `RemoteUserCredentialProvider` serves the hosted server: `context` is the verified
 `Caller` (see seo_pulse_mcp.caller) whose Google refresh token arrived inside the
@@ -84,10 +82,7 @@ def authenticate():
 
 
 class CredentialProvider(ABC):
-    """service: "gsc" or "ga4"; context: reserved for a per-request caller identity.
-
-    Always `None` in this phase — see the module docstring for the phase 2 plan.
-    """
+    """service: "gsc" or "ga4"; context: verified hosted Caller, or None locally."""
 
     @abstractmethod
     def get(self, service, context=None):

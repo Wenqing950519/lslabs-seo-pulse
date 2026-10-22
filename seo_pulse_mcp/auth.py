@@ -1,17 +1,18 @@
 """Hosted-mode OAuth: SEO Pulse is its own authorization server, Google is the identity provider.
 
 ChatGPT (or any MCP client) registers with us, signs the user in through Google, and gets
-SEO Pulse tokens. Nothing is stored server-side:
+SEO Pulse tokens. Google grants stay inside encrypted tokens:
 
 - client registrations are HMAC-signed into the client_id itself (redirect URIs included);
 - authorization codes, access tokens and refresh tokens are Fernet-encrypted blobs
   (AES-128-CBC + HMAC-SHA256) that carry the caller's Google refresh token;
 - the AI client holds those blobs, and the server decrypts them in memory per request.
 
-So there is no database to run or pay for, and no at-rest store of anyone's Google
-grant. The trade-offs are documented in docs/hosting.md: issued refresh tokens cannot be
-revoked one by one (revoking the grant at Google cuts all of them), and single-use
-authorization codes are only enforced within one process.
+Firestore stores only HMAC code claims and call counters, with TTL cleanup; it does
+not store anyone's Google grant. Issued refresh tokens cannot be
+revoked one by one (Google grant revocation takes effect after propagation and
+existing cached results may remain readable). Authorization code claims are atomic
+across processes and revisions; see docs/hosting.md.
 """
 import base64
 import hashlib
@@ -19,7 +20,6 @@ import hmac
 import html
 import json
 import secrets
-import threading
 import time
 from urllib.parse import urlencode, urlparse
 
@@ -33,6 +33,7 @@ from pydantic import Field
 from starlette.responses import HTMLResponse, RedirectResponse
 
 from . import events
+from .admission import AdmissionUnavailable, state_call
 from .branding import WEBSITE_URL
 from .connectors.credentials import GA4_SCOPES, GSC_SCOPES
 
@@ -93,7 +94,14 @@ class TokenCodec:
 
     def unseal(self, kind, token, ttl):
         try:
-            data = json.loads(self._fernet.decrypt(token.encode(), ttl=ttl))
+            encoded = token.encode("ascii")
+            # Fernet's permissive decoder accepts multiple strings for one blob.
+            # Code replay claims hash the issued string, so require its unique
+            # padded URL-safe representation before decrypting or claiming it.
+            raw = base64.b64decode(encoded, altchars=b"-_", validate=True)
+            if base64.urlsafe_b64encode(raw) != encoded:
+                return None
+            data = json.loads(self._fernet.decrypt(encoded, ttl=ttl))
         except (InvalidToken, ValueError, TypeError, AttributeError):
             return None
         return data if isinstance(data, dict) and data.get("k") == kind else None
@@ -103,6 +111,10 @@ class TokenCodec:
 
     def verify(self, message, signature):
         """Index of the key that made `signature`, or None."""
+        # client_id comes from an unauthenticated query parameter. compare_digest
+        # on str rejects non-ASCII rather than returning False.
+        if not isinstance(signature, str) or len(signature) != 43 or not signature.isascii():
+            return None
         for index in range(len(self._mac_keys)):
             if hmac.compare_digest(self.sign(message, index), signature):
                 return index
@@ -122,24 +134,6 @@ class AccessPolicy:
             return True
         email = (email or "").lower()
         return email in self.emails or email.rpartition("@")[2] in self.domains
-
-
-class _UsedCodes:
-    """Authorization codes already exchanged in this process (they expire after CODE_TTL anyway)."""
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self._seen = {}
-
-    def claim(self, code):
-        digest, now = hashlib.sha256(code.encode()).hexdigest(), time.time()
-        with self._lock:
-            for key in [k for k, t in self._seen.items() if t < now]:
-                del self._seen[key]
-            if digest in self._seen:
-                return False
-            self._seen[digest] = now + CODE_TTL
-            return True
 
 
 def _page(status, title, body):
@@ -165,7 +159,7 @@ class StatelessOAuthProvider:
     """OAuthAuthorizationServerProvider for the MCP SDK; see the module docstring."""
 
     def __init__(self, *, public_url, google_client_id, google_client_secret, codec, access_policy,
-                 redirect_hosts, credentials, http_transport=None):
+                 redirect_hosts, credentials, state_store, http_transport=None):
         self.public_url = public_url.rstrip("/")
         self.resource_url = f"{self.public_url}/mcp"
         self.google_client_id, self.google_client_secret = google_client_id, google_client_secret
@@ -173,7 +167,7 @@ class StatelessOAuthProvider:
         self.redirect_hosts = {h.lower() for h in redirect_hosts}
         self.credentials = credentials
         self._http_transport = http_transport
-        self._used_codes = _UsedCodes()
+        self._state_store = state_store
 
     # --- client registration (RFC 7591), stateless --------------------------------
 
@@ -314,7 +308,12 @@ class StatelessOAuthProvider:
                           scope=" ".join(scopes), refresh_token=self.codec.seal("rt", claims))
 
     async def exchange_authorization_code(self, client, authorization_code):
-        if not self._used_codes.claim(authorization_code.code):
+        try:
+            claimed = await state_call(lambda: self._state_store.claim_code(
+                authorization_code.code, authorization_code.expires_at))
+        except AdmissionUnavailable:
+            raise TokenError("invalid_grant", "使用量驗證服務暫時無法使用，請稍後重新登入。") from None
+        if not claimed:
             raise TokenError("invalid_grant", "authorization code already used")
         return self._issue(client.client_id, authorization_code.subject, authorization_code.google_refresh_token,
                            authorization_code.scopes, authorization_code.resource, authorization_code.email)
@@ -341,7 +340,7 @@ class StatelessOAuthProvider:
                                  google_refresh_token=data["grt"], email=data.get("em"))
 
     async def revoke_token(self, token):
-        """Revoke the Google grant itself: every SEO Pulse token carrying it stops working."""
+        """Request Google grant revocation; encrypted tokens and result caches expire separately."""
         refresh_token = getattr(token, "google_refresh_token", None)
         if not refresh_token:
             return

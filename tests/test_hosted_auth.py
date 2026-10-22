@@ -1,5 +1,5 @@
 """Hosted mode: SEO Pulse is its own OAuth 2.1 authorization server with Google as the
-identity provider, and keeps no server-side state (audit 2026-10-21 §3.A, §4)."""
+identity provider. Durable admission never stores Google grants or reports."""
 import base64
 import hashlib
 import json
@@ -18,6 +18,7 @@ from seo_pulse_mcp import server
 from seo_pulse_mcp.auth import CODE_TTL, TokenCodec
 from seo_pulse_mcp.caller import current_caller
 from seo_pulse_mcp.hosting import HostedConfig, build_app, uvicorn_config
+from shared_state_fixture import sqlite_store
 
 PUBLIC = "https://pulse.example.test"
 CHATGPT_REDIRECT = "https://chatgpt.com/connector_platform_oauth_redirect"
@@ -30,6 +31,7 @@ def config(**overrides):
     env = {"SEO_PULSE_PUBLIC_URL": PUBLIC, "SEO_PULSE_GOOGLE_WEB_CLIENT_ID": "google-cid",
            "SEO_PULSE_GOOGLE_WEB_CLIENT_SECRET": "google-secret", "SEO_PULSE_TOKEN_KEYS": KEY,
            "SEO_PULSE_ALLOWED_EMAILS": "invited@example.com", "SEO_PULSE_ALLOWED_HOSTS": "testserver",
+           "SEO_PULSE_FIRESTORE_PROJECT": "test-project", "SEO_PULSE_STATE_HMAC_KEY": "state-test-key-" * 4,
            "SEO_PULSE_VERIFICATION_FILES": "/.well-known/openai-apps-challenge=challenge-token"}
     env.update(overrides)
     return HostedConfig.from_env(env)
@@ -51,11 +53,12 @@ def google_transport(email="invited@example.com", scope=SCOPES, refresh_token="g
 
 
 @pytest.fixture
-def client_for():
+def client_for(tmp_path):
     clients = []
 
-    def make(cfg=None, transport=None):
-        app = build_app(cfg or config(), http_transport=transport or google_transport())
+    def make(cfg=None, transport=None, state_store=None):
+        app = build_app(cfg or config(), http_transport=transport or google_transport(),
+                        state_store=state_store or sqlite_store(tmp_path / "state.db"))
         client = TestClient(app, base_url=PUBLIC.replace("https://pulse.example.test", "http://testserver"),
                             follow_redirects=False)
         client.__enter__()
@@ -186,6 +189,80 @@ def test_authorization_code_is_single_use(client_for):
     assert again.status_code == 400
 
 
+def test_authorization_code_replay_is_rejected_by_a_new_app_instance(client_for):
+    first, second = client_for(), client_for()
+    reg, code, verifier, _ = tokens(first)
+    again = second.post("/token", data={"grant_type": "authorization_code", "code": code,
+                                       "redirect_uri": CHATGPT_REDIRECT, "client_id": reg["client_id"],
+                                       "code_verifier": verifier})
+    assert again.status_code == 400 and again.json()["error"] == "invalid_grant"
+
+
+@pytest.mark.parametrize("suffix", ["=", "===", "\n", " ", "!"])
+def test_alternate_base64_cannot_replay_a_used_authorization_code(client_for, suffix):
+    first, second = client_for(), client_for()
+    reg, code, verifier, _ = tokens(first)
+    again = second.post("/token", data={"grant_type": "authorization_code", "code": code + suffix,
+                                       "redirect_uri": CHATGPT_REDIRECT, "client_id": reg["client_id"],
+                                       "code_verifier": verifier})
+    assert again.status_code == 400 and again.json()["error"] == "invalid_grant"
+
+
+@pytest.mark.parametrize("kind", ["code", "at", "rt", "state"])
+@pytest.mark.parametrize("suffix", ["=", "===", "\n", " "])
+def test_codec_accepts_only_canonical_fernet_encoding(kind, suffix):
+    codec = TokenCodec([KEY])
+    token = codec.seal(kind, {"x": 1})
+    assert codec.unseal(kind, token, CODE_TTL)["x"] == 1
+    assert codec.unseal(kind, token + suffix, CODE_TTL) is None
+
+
+def test_codec_rejects_equivalent_base64_alphabets_and_nonzero_padding_bits():
+    codec = TokenCodec([KEY])
+    # Vary payload length to obtain a real issued token with padding.
+    token = next(token for length in range(32)
+                 if (token := codec.seal("code", {"x": "x" * length})).endswith("="))
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    body = token.rstrip("=")
+    alias = body[:-1] + alphabet[alphabet.index(body[-1]) | 1] + token[len(body):]
+    assert alias != token and base64.urlsafe_b64decode(alias) == base64.urlsafe_b64decode(token)
+    assert codec.unseal("code", alias, CODE_TTL) is None
+
+    # Enough encrypted blocks to exercise the URL-safe alphabet substitutions.
+    token = codec.seal("code", {"x": "x" * 2048})
+    alias = token.replace("-", "+").replace("_", "/")
+    assert alias != token and base64.urlsafe_b64decode(alias) == base64.urlsafe_b64decode(token)
+    assert codec.unseal("code", alias, CODE_TTL) is None
+
+
+def test_store_outage_refuses_code_exchange_and_readiness(client_for):
+    from seo_pulse_mcp.admission import AdmissionUnavailable
+    broken = Mock(check_available=Mock(side_effect=AdmissionUnavailable()),
+                  claim_code=Mock(side_effect=AdmissionUnavailable()))
+    client = client_for(state_store=broken)
+    reg, verifier, callback = login(client)
+    code = parse_qs(urlparse(callback.headers["location"]).query)["code"][0]
+    result = client.post("/token", data={"grant_type": "authorization_code", "code": code,
+                                        "redirect_uri": CHATGPT_REDIRECT, "client_id": reg["client_id"],
+                                        "code_verifier": verifier})
+    assert result.status_code == 400 and "access_token" not in result.json()
+    health = client.get("/health")
+    assert health.status_code == 503 and health.text == "unavailable"
+
+
+@pytest.mark.parametrize("setting", ["SEO_PULSE_FIRESTORE_PROJECT", "SEO_PULSE_STATE_HMAC_KEY"])
+def test_shared_store_configuration_is_required(setting):
+    with pytest.raises(ValueError, match=setting):
+        config(**{setting: ""})
+
+
+def test_shared_state_key_and_namespace_are_validated_without_network():
+    with pytest.raises(ValueError, match="SEO_PULSE_STATE_HMAC_KEY"):
+        config(SEO_PULSE_STATE_HMAC_KEY="short")
+    with pytest.raises(ValueError, match="SEO_PULSE_STATE_NAMESPACE"):
+        config(SEO_PULSE_STATE_NAMESPACE="bad/path")
+
+
 def test_refresh_rotates_tokens(client_for):
     client = client_for()
     reg, _, _, issued = tokens(client)
@@ -257,3 +334,26 @@ def test_config_refuses_open_signup_by_accident():
     assert config(SEO_PULSE_ALLOWED_EMAILS="", SEO_PULSE_OPEN_SIGNUP="1").access_policy.allows("x@y.z")
     with pytest.raises(ValueError, match="https"):
         config(SEO_PULSE_PUBLIC_URL="http://pulse.example.test")
+
+
+@pytest.mark.parametrize("setting", ["SEO_PULSE_RATE_PER_MINUTE", "SEO_PULSE_RATE_PER_DAY",
+                                     "SEO_PULSE_DAILY_TOTAL", "SEO_PULSE_MAX_CONCURRENCY"])
+@pytest.mark.parametrize("value", ["0", "-1"])
+def test_hosted_limits_cannot_be_disabled_by_configuration(setting, value):
+    with pytest.raises(ValueError, match=setting):
+        config(**{setting: value})
+
+
+def test_hosted_cache_duration_cannot_be_negative():
+    with pytest.raises(ValueError, match="SEO_PULSE_CACHE_SECONDS"):
+        config(SEO_PULSE_CACHE_SECONDS="-1")
+    assert config(SEO_PULSE_CACHE_SECONDS="0").cache_seconds == 0
+
+
+def test_malformed_client_signature_is_a_client_error(client_for):
+    client = client_for()
+    _, challenge = pkce()
+    response = client.get("/authorize", params={
+        "response_type": "code", "client_id": "spc_payload." + "惡" * 43, "redirect_uri": CHATGPT_REDIRECT,
+        "code_challenge": challenge, "code_challenge_method": "S256", "state": "state"})
+    assert response.status_code == 400

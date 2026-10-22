@@ -137,7 +137,7 @@ export SEO_PULSE_HTTP_PORT=8000
 設定 `SEO_PULSE_PUBLIC_URL` 等變數後，`seo-pulse serve --transport http` 會變成需要登入的雲端伺服器：
 
 - SEO Pulse 自己提供 OAuth 2.1 授權端（DCR、PKCE S256、protected resource metadata），使用者以 Google 帳號登入；
-- 伺服器無狀態，不需要資料庫；
+- Google 授權與報表不落地；Firestore 只保存 HMAC 使用量與授權碼防重放紀錄，跨重啟共用限制；
 - 有邀請名單，以及每人、每日、全站的呼叫上限，並快取重複查詢；
 - 雲端版沒有預設網站：先 `list_sites`、`list_ga4_properties`，再帶 `site_url`、`property_id`。
 

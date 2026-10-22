@@ -81,11 +81,13 @@ async def test_local_calls_stay_silent(monkeypatch, logged):
     assert logged() == []
 
 
-def test_sign_in_outcomes_are_logged(logged):
+def test_sign_in_outcomes_are_logged(logged, tmp_path):
     from test_hosted_auth import TestClient, build_app, config, google_transport, login
+    from shared_state_fixture import sqlite_store
 
     def run(transport):
-        with TestClient(build_app(config(), http_transport=transport), base_url="http://testserver",
+        with TestClient(build_app(config(), http_transport=transport, state_store=sqlite_store(tmp_path / "state.db")),
+                        base_url="http://testserver",
                         follow_redirects=False) as client:
             login(client)
 

@@ -2,10 +2,9 @@
 
 The tool functions are synchronous and call Google over blocking HTTP, so each call
 runs in a worker thread (bounded by `max_concurrency`) instead of stalling every other
-request on the event loop. In hosted mode the same layer enforces per-caller and
-per-process call limits and serves identical calls from a short in-memory cache, which
-is what keeps Cloud Run CPU time and Google API quota bounded. Local use keeps all
-limits off. Counters live in process memory: with one Cloud Run instance they are exact.
+request on the event loop. Hosted call budgets are reserved in a shared atomic
+store before Google runs, including across restarts and overlapping revisions.
+Concurrency and short result caches remain per process. Local use keeps limits off.
 """
 import json
 import threading
@@ -17,26 +16,21 @@ import anyio.lowlevel
 import anyio.to_thread
 
 from . import events
+from .admission import AdmissionUnavailable, LimitExceeded, state_call
 from .caller import acting_for
 
 LOCAL_SUBJECT = "local"
 
 
-class LimitExceeded(RuntimeError):
-    """A call limit was hit; `limit` names which one (per_minute, per_day, daily_total)."""
-
-    def __init__(self, limit, message):
-        super().__init__(message)
-        self.limit = limit
-
-
 class ToolRuntime:
     def __init__(self, max_concurrency=8, per_minute=0, per_day=0, daily_total=0,
-                 cache_seconds=0, cache_entries=256, clock=time.monotonic, wall=time.time):
+                 cache_seconds=0, cache_entries=256, clock=time.monotonic, wall=time.time,
+                 shared_store=None, require_shared=False):
         self.max_concurrency = max_concurrency
         self.per_minute, self.per_day, self.daily_total = per_minute, per_day, daily_total
         self.cache_seconds, self.cache_entries = cache_seconds, cache_entries
         self._clock, self._wall = clock, wall
+        self.shared_store, self.require_shared = shared_store, require_shared
         # One limiter per event loop: a limiter bound to another loop would block forever.
         self._limiter = anyio.lowlevel.RunVar(f"seo_pulse_limiter_{id(self)}")
         self._lock = threading.Lock()
@@ -92,19 +86,22 @@ class ToolRuntime:
             "tool_call", severity, tool=name, outcome=outcome, subject=events.subject_hash(subject), **fields)
         ) if caller is not None else (lambda *a, **k: None)
         started = self._clock()
+        if caller is not None and self.require_shared and self.shared_store is None:
+            log("error", "ERROR", error_type="AdmissionUnavailable")
+            raise AdmissionUnavailable()
         key = self._cache_key(subject, name, arguments) if self.cache_seconds else None
         if key:
             hit, result = self._cached(key)
             if hit:
+                if caller is not None and self.shared_store is not None:
+                    try:
+                        await state_call(self.shared_store.check_available)
+                    except AdmissionUnavailable:
+                        log("error", "ERROR", error_type="AdmissionUnavailable")
+                        raise
                 log("cached")
                 return result
         day_total = None
-        if caller is not None:
-            try:
-                day_total = self._admit(subject)
-            except LimitExceeded as exc:
-                log("limited", "WARNING", limit=exc.limit)
-                raise
         try:
             limiter = self._limiter.get()
         except LookupError:
@@ -116,7 +113,17 @@ class ToolRuntime:
                 return function(**arguments)
 
         try:
-            result = await anyio.to_thread.run_sync(call, limiter=limiter)
+            async with limiter:
+                if caller is not None:
+                    if self.shared_store is not None:
+                        day_total = await state_call(lambda: self.shared_store.admit(
+                            subject, per_minute=self.per_minute, per_day=self.per_day, daily_total=self.daily_total))
+                    else:
+                        day_total = self._admit(subject)
+                result = await anyio.to_thread.run_sync(call)
+        except LimitExceeded as exc:
+            log("limited", "WARNING", limit=exc.limit)
+            raise
         except Exception as exc:
             # Bad tool input is the caller's problem; anything else needs attention.
             log("error", "WARNING" if isinstance(exc, ValueError) else "ERROR", error_type=type(exc).__name__,
