@@ -142,10 +142,15 @@ def _page(status, title, body):
     link = f'<a href="{WEBSITE_URL}?utm_source=seo-pulse&amp;utm_medium=oauth&amp;utm_campaign=sign-in">SEO Pulse 說明</a>'
     content = (f'<!doctype html><html lang="zh-Hant-TW"><head><meta charset="utf-8">'
                f'<meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)}｜SEO Pulse</title>'
-               f'<style>body{{font-family:system-ui,"Noto Sans TC",sans-serif;max-width:34rem;margin:15vh auto;'
-               f'padding:0 16px;line-height:1.7;color:#111;background:#fff}}a{{color:#0b57d0}}</style></head>'
-               f'<body><h1>{html.escape(title)}</h1><p>{html.escape(body)}</p>'
-               f'<p>問題請寄 {contact}。{link}</p></body></html>')
+               f'<link rel="icon" href="https://lslabs.tw/brand/logos/ls-labs/favicon.svg?v=20261023" type="image/svg+xml">'
+               f'<style>body{{font-family:system-ui,"Noto Sans TC",sans-serif;max-width:34rem;margin:12vh auto;'
+               f'padding:0 24px;line-height:1.7;color:#F8FAFC;background:#070B14}}a{{color:#60A5FA}}'
+               f'a:focus-visible{{outline:2px solid #60A5FA;outline-offset:5px}}header{{display:flex;align-items:center;gap:20px;'
+               f'padding-bottom:24px;border-bottom:1px solid #334155;margin-bottom:40px}}header img{{width:150px;height:auto}}'
+               f'header span{{color:#94A3B8}}h1{{font-size:1.8rem}}</style></head>'
+               f'<body><header><a href="https://lslabs.tw/"><img src="https://lslabs.tw/brand/logos/ls-labs/ls-labs-logo-white.svg" alt="LS-Labs" width="150" height="40"></a><span>SEO Pulse</span></header>'
+               f'<main><h1>{html.escape(title)}</h1><p>{html.escape(body)}</p>'
+               f'<p>問題請寄 {contact}。{link}</p></main></body></html>')
     return HTMLResponse(content, status_code=status, headers={"Cache-Control": "no-store"})
 
 
